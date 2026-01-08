@@ -32,7 +32,7 @@ const Calculator = () => {
     mobileGb: 30,
     fiberSpeed: 600,
     minutesType: 'ilimitadas',
-    isPrepa go: false,
+    isPrepago: false,
     needsLandline: false,
     additionalLines: 0,
     tvRequired: false,
