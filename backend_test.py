@@ -255,9 +255,8 @@ class HipnotikAPITester:
             success, response = self.run_test(
                 "Update Sale Status",
                 "PATCH",
-                f"sales/{sale_id}/status",
+                f"sales/{sale_id}/status?status=Subido a compañía",
                 200,
-                data={"status": "Subido a compañía"},
                 token=self.superadmin_token,
                 description="Update sale status"
             )
