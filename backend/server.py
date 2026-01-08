@@ -377,6 +377,28 @@ async def get_client(client_id: str, user: User = Depends(get_current_user)):
         client["updated_at"] = datetime.fromisoformat(client["updated_at"])
     return Client(**client)
 
+@api_router.put("/clients/{client_id}", response_model=Client)
+async def update_client(client_id: str, client_data: ClientCreate, user: User = Depends(get_current_user)):
+    result = await db.clients.update_one(
+        {"id": client_id},
+        {"$set": {
+            "name": client_data.name,
+            "phone": client_data.phone,
+            "email": client_data.email,
+            "city": client_data.city,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    client = await db.clients.find_one({"id": client_id}, {"_id": 0})
+    if isinstance(client["created_at"], str):
+        client["created_at"] = datetime.fromisoformat(client["created_at"])
+    if isinstance(client["updated_at"], str):
+        client["updated_at"] = datetime.fromisoformat(client["updated_at"])
+    return Client(**client)
+
 # ==================== SALE ENDPOINTS ====================
 
 @api_router.post("/sales", response_model=Sale)
