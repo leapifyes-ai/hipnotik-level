@@ -16,7 +16,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const Incidents = () => {
   const [incidents, setIncidents] = useState([]);
-  const [clients, setClients] = useState([]);
+  const [clients, setClients] = useState({});
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [formData, setFormData] = useState({
@@ -37,8 +37,12 @@ const Incidents = () => {
         axios.get(`${API_URL}/incidents`),
         axios.get(`${API_URL}/clients`)
       ]);
+      
       setIncidents(incidentsRes.data);
-      setClients(clientsRes.data);
+      
+      const clientsMap = {};
+      clientsRes.data.forEach(c => clientsMap[c.id] = c);
+      setClients(clientsMap);
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Error al cargar incidencias');
@@ -85,6 +89,14 @@ const Incidents = () => {
     return colors[status] || 'bg-slate-100 text-slate-700';
   };
 
+  const getDaysOpen = (createdAt) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - created);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
   return (
     <DashboardLayout>
       <div className="p-4 md:p-8 space-y-6 pb-24 md:pb-8">
@@ -103,38 +115,74 @@ const Incidents = () => {
           </Button>
         </div>
 
+        {/* Tabla de Incidencias */}
         {loading ? (
           <div className="flex justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
           </div>
         ) : (
-          <div className="space-y-3">
-            {incidents.map((incident) => (
-              <Card key={incident.id} className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-all">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <h3 className="text-lg font-heading font-semibold text-slate-900">{incident.title}</h3>
-                      <Badge className={getStatusColor(incident.status)}>{incident.status}</Badge>
-                      <Badge className={getPriorityColor(incident.priority)}>{incident.priority}</Badge>
-                    </div>
-                    <p className="text-sm text-slate-600">{incident.description}</p>
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span>Tipo: {incident.type}</span>
-                      <span>•</span>
-                      <span>{new Date(incident.created_at).toLocaleDateString('es-ES')}</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {!loading && incidents.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-slate-500">No hay incidencias registradas</p>
-          </div>
+          <Card className="bg-white border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Cliente</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Título</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Tipo</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Prioridad</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Estado</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Días Abierta</th>
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Fecha</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {incidents.map((incident) => {
+                    const client = clients[incident.client_id];
+                    const daysOpen = getDaysOpen(incident.created_at);
+                    return (
+                      <tr key={incident.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                          {client?.name || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-medium text-slate-900">{incident.title}</p>
+                          <p className="text-xs text-slate-500 mt-1 line-clamp-1">{incident.description}</p>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {incident.type}
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge className={`${getPriorityColor(incident.priority)} text-xs`}>
+                            {incident.priority}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Badge className={`${getStatusColor(incident.status)} text-xs`}>
+                            {incident.status}
+                          </Badge>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-900 font-semibold">
+                          {daysOpen} {daysOpen === 1 ? 'día' : 'días'}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-slate-600">
+                          {new Date(incident.created_at).toLocaleDateString('es-ES', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {incidents.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-slate-500">No hay incidencias registradas</p>
+              </div>
+            )}
+          </Card>
         )}
 
         {/* Create Incident Dialog */}
@@ -151,7 +199,7 @@ const Incidents = () => {
                     <SelectValue placeholder="Seleccionar cliente" />
                   </SelectTrigger>
                   <SelectContent>
-                    {clients.map(client => (
+                    {Object.values(clients).map(client => (
                       <SelectItem key={client.id} value={client.id}>{client.name} - {client.phone}</SelectItem>
                     ))}
                   </SelectContent>
