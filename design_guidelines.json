@@ -1,0 +1,148 @@
+{
+  "brand_identity": {
+    "name": "HIPNOTIK LEVEL Stand",
+    "tone": "Premium, Sober, Efficient, Organized",
+    "aesthetic": "Clean SaaS, Pastel & Neutral, High Readability",
+    "principles": [
+      "Fusion over Imitation: Mix Swiss clarity with Soft UI friendliness",
+      "Content is King: Data legibility comes first",
+      "Negative Space: Use whitespace to reduce cognitive load",
+      "Mobile-First: All layouts must work on a 375px width"
+    ]
+  },
+  "typography": {
+    "font_family": {
+      "headings": "Manrope, sans-serif",
+      "body": "Public Sans, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "usage_rules": [
+      "Headings (h1-h3): Manrope, Font-Weight 600/700, Tracking-Tight",
+      "Body: Public Sans, Font-Weight 400/500, Leading-Relaxed",
+      "Data/Numbers: Public Sans or JetBrains Mono (for tabular data)",
+      "Avoid Inter for Headings"
+    ]
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#334155",
+        "foreground": "#f8fafc"
+      },
+      "secondary": {
+        "DEFAULT": "#f1f5f9",
+        "foreground": "#0f172a"
+      },
+      "accent": {
+        "DEFAULT": "#e0e7ff",
+        "foreground": "#3730a3"
+      },
+      "background": "#f8fafc",
+      "surface": "#ffffff",
+      "muted": "#94a3b8"
+    },
+    "status": {
+      "success": {
+        "bg": "#dcfce7",
+        "text": "#166534"
+      },
+      "warning": {
+        "bg": "#fef9c3",
+        "text": "#854d0e"
+      },
+      "error": {
+        "bg": "#fee2e2",
+        "text": "#991b1b"
+      },
+      "info": {
+        "bg": "#e0f2fe",
+        "text": "#075985"
+      }
+    },
+    "rules": [
+      "Use pastel backgrounds for status badges (bg-opacity-50)",
+      "Never use pure black (#000000). Use Slate-900 (#0f172a)",
+      "Avoid gradients for backgrounds. Use solid colors or subtle noise textures",
+      "FORBIDDEN: Teal Green/Blue (#1B93A4) for main elements"
+    ]
+  },
+  "layout": {
+    "spacing_scale": "Generous (p-4, p-6, p-8)",
+    "grid_system": {
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4",
+      "form": "grid-cols-1 md:grid-cols-2 gap-6",
+      "card_grid": "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+    },
+    "container": {
+      "max_width": "max-w-7xl",
+      "padding": "px-4 sm:px-6 lg:px-8",
+      "center": true
+    },
+    "border_radius": {
+      "card": "rounded-xl",
+      "button": "rounded-lg",
+      "input": "rounded-md"
+    }
+  },
+  "components": {
+    "cards": {
+      "style": "bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow duration-200",
+      "padding": "p-6"
+    },
+    "buttons": {
+      "primary": "bg-slate-800 text-white hover:bg-slate-700 shadow-sm",
+      "secondary": "bg-white text-slate-700 border border-slate-200 hover:bg-slate-50",
+      "ghost": "hover:bg-slate-100 text-slate-600"
+    },
+    "inputs": {
+      "style": "bg-slate-50 border-slate-200 focus:ring-2 focus:ring-slate-400 focus:border-transparent transition-all"
+    },
+    "navigation": {
+      "sidebar": "bg-slate-900 text-slate-300 w-64 hidden md:flex flex-col",
+      "mobile_nav": "bg-white border-t border-slate-200 fixed bottom-0 w-full z-50 md:hidden"
+    }
+  },
+  "visual_assets": {
+    "icons": "Lucide React (Stroke Width 1.5 or 2)",
+    "images": {
+      "login_bg": "https://images.unsplash.com/photo-1679068008949-12852e5fca5a?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "dashboard_hero": "https://images.unsplash.com/photo-1758691736097-7f735ac5f118?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "team_avatars": [
+        "https://images.unsplash.com/photo-1764690690771-b4522d66b433?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "https://images.unsplash.com/photo-1758691737182-d42aefd6dee8?crop=entropy&cs=srgb&fm=jpg&q=85"
+      ],
+      "placeholders": {
+        "telecom_tower": "https://images.unsplash.com/photo-1681194179636-52249feaeb5a?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "fiber_optic": "https://images.unsplash.com/photo-1636218685495-8f6545aadb71?crop=entropy&cs=srgb&fm=jpg&q=85"
+      }
+    }
+  },
+  "motion": {
+    "transitions": "transition-all duration-200 ease-in-out",
+    "hover_effects": "hover:-translate-y-0.5",
+    "page_transition": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+  },
+  "accessibility": {
+    "contrast": "Ensure text meets WCAG AA (4.5:1)",
+    "focus_states": "Visible focus rings on all interactive elements",
+    "aria_labels": "Required for icon-only buttons"
+  },
+  "tech_stack_specifics": {
+    "framework": "React (JS/JSX)",
+    "styling": "Tailwind CSS",
+    "ui_library": "Shadcn/UI (Radix Primitives)",
+    "icons": "lucide-react",
+    "charts": "recharts",
+    "state_management": "React Context / Hooks",
+    "routing": "react-router-dom v6+"
+  },
+  "universal_guidelines": [
+    "Do not use gradients for text.",
+    "Avoid 'Inter' font for headings. Use Manrope.",
+    "Use 'sonner' for toasts.",
+    "All interactive elements MUST have data-testid attributes.",
+    "Mobile-first: Ensure touch targets are at least 44px.",
+    "Use 'grid-cols-1' by default for all layouts, then expand for md/lg.",
+    "Keep the UI 'Sober' - no confetti, no bouncing animations, just smooth fades."
+  ]
+}
