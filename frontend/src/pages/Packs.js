@@ -70,13 +70,24 @@ const Packs = () => {
     }
   };
 
+  // Agrupar packs por compañía
+  const packsByCompany = packs.reduce((acc, pack) => {
+    if (!acc[pack.company]) {
+      acc[pack.company] = [];
+    }
+    acc[pack.company].push(pack);
+    return acc;
+  }, {});
+
+  const companies = ['Jazztel', 'MásMóvil', 'Pepephone', 'Simyo'];
+
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-8 space-y-6 pb-24 md:pb-8">
+      <div className="p-4 md:p-8 space-y-8 pb-24 md:pb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl md:text-4xl font-heading font-bold text-slate-900 tracking-tight">Tarifas / Packs</h1>
-            <p className="text-slate-600 mt-1">Catálogo de tarifas disponibles</p>
+            <p className="text-slate-600 mt-1">Catálogo de tarifas organizadas por compañía</p>
           </div>
           {isSuperAdmin && (
             <Button
@@ -95,57 +106,76 @@ const Packs = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-900"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {packs.map((pack) => (
-              <Card key={pack.id} className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-all">
-                <div className="space-y-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
-                        <PackageIcon className="text-slate-700" size={20} />
-                      </div>
-                      {pack.is_new && (
-                        <Badge className="bg-green-100 text-green-700 text-xs">Nueva</Badge>
-                      )}
-                    </div>
-                    {pack.active ? (
-                      <Badge className="bg-green-100 text-green-700">Activa</Badge>
-                    ) : (
-                      <Badge className="bg-slate-100 text-slate-700">Inactiva</Badge>
-                    )}
+          <>
+            {companies.map(company => {
+              const companyPacks = packsByCompany[company] || [];
+              if (companyPacks.length === 0) return null;
+              
+              return (
+                <div key={company} className="space-y-4">
+                  {/* Company Header */}
+                  <div className="flex items-center gap-3 pb-3 border-b-2 border-slate-200">
+                    <h2 className="text-2xl font-heading font-bold text-slate-900">{company}</h2>
+                    <Badge variant="outline" className="text-slate-600">
+                      {companyPacks.length} {companyPacks.length === 1 ? 'tarifa' : 'tarifas'}
+                    </Badge>
                   </div>
                   
-                  <div>
-                    <h3 className="text-lg font-heading font-semibold text-slate-900">{pack.name}</h3>
-                    <p className="text-sm text-slate-600 mt-1">{pack.company}</p>
+                  {/* Company Packs Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {companyPacks.map((pack) => (
+                      <Card key={pack.id} className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <div className="space-y-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center">
+                                <PackageIcon className="text-slate-700" size={20} />
+                              </div>
+                              {pack.is_new && (
+                                <Badge className="bg-green-100 text-green-700 text-xs">Nueva</Badge>
+                              )}
+                            </div>
+                            {pack.active ? (
+                              <Badge className="bg-green-100 text-green-700">Activa</Badge>
+                            ) : (
+                              <Badge className="bg-slate-100 text-slate-700">Inactiva</Badge>
+                            )}
+                          </div>
+                          
+                          <div>
+                            <h3 className="text-lg font-heading font-semibold text-slate-900">{pack.name}</h3>
+                          </div>
+
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-3xl font-heading font-bold text-slate-900">{pack.price}€</span>
+                            <span className="text-sm text-slate-500">/mes</span>
+                          </div>
+
+                          <div>
+                            <p className="text-sm text-slate-600">{pack.features}</p>
+                          </div>
+
+                          {pack.observations && (
+                            <div className="pt-2 border-t border-slate-100">
+                              <p className="text-xs text-slate-500 italic">{pack.observations}</p>
+                            </div>
+                          )}
+
+                          <Badge variant="outline" className="text-xs">{pack.type}</Badge>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-heading font-bold text-slate-900">{pack.price}€</span>
-                    <span className="text-sm text-slate-500">/mes</span>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-slate-600">{pack.features}</p>
-                  </div>
-
-                  {pack.observations && (
-                    <div className="pt-2 border-t border-slate-100">
-                      <p className="text-xs text-slate-500 italic">{pack.observations}</p>
-                    </div>
-                  )}
-
-                  <Badge variant="outline" className="text-xs">{pack.type}</Badge>
                 </div>
-              </Card>
-            ))}
-          </div>
-        )}
-
-        {!loading && packs.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-slate-500">No hay tarifas disponibles</p>
-          </div>
+              );
+            })}
+            
+            {packs.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-slate-500">No hay tarifas disponibles</p>
+              </div>
+            )}
+          </>
         )}
 
         {/* Create Pack Dialog */}
