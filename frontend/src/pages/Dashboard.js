@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { TrendingUp, Users, AlertCircle, Plus, Target as TargetIcon } from 'lucide-react';
+import { TrendingUp, TrendingDown, Minus, Users, AlertCircle, Plus, Target as TargetIcon, Calendar, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -128,6 +128,18 @@ const Dashboard = () => {
     }
   };
 
+  const getTrendIcon = (trend) => {
+    if (trend === 'up') return <TrendingUp className="text-green-600" size={20} />;
+    if (trend === 'down') return <TrendingDown className="text-red-600" size={20} />;
+    return <Minus className="text-slate-400" size={20} />;
+  };
+
+  const getTrendText = (trend) => {
+    if (trend === 'up') return 'En aumento';
+    if (trend === 'down') return 'En descenso';
+    return 'Estable';
+  };
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -144,7 +156,7 @@ const Dashboard = () => {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-heading font-bold text-slate-900 tracking-tight">Dashboard</h1>
+            <h1 className="text-3xl md:text-4xl font-heading font-bold text-slate-900 tracking-tight">Centro de Control</h1>
             <p className="text-slate-600 mt-1">Bienvenido, {user?.name}</p>
           </div>
           <Button
@@ -157,125 +169,223 @@ const Dashboard = () => {
           </Button>
         </div>
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 font-medium">Ventas Hoy</p>
-                <p className="text-3xl font-heading font-bold text-slate-900 mt-2">{kpis?.sales_today || 0}</p>
+        {/* 1. ESTADO DEL NEGOCIO */}
+        <div>
+          <h2 className="text-lg font-heading font-semibold text-slate-900 mb-4">Estado del Negocio</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Ventas Hoy */}
+            <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                  <Calendar className="text-blue-700" size={24} />
+                </div>
+                {getTrendIcon(kpis?.sales_today_trend)}
               </div>
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="text-green-700" size={24} />
+              <div className="space-y-1">
+                <p className="text-4xl font-heading font-bold text-slate-900">{kpis?.sales_today || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Ventas Hoy</p>
+                <p className="text-xs text-slate-500">{getTrendText(kpis?.sales_today_trend)} vs ayer ({kpis?.sales_yesterday || 0})</p>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 font-medium">Ventas del Mes</p>
-                <p className="text-3xl font-heading font-bold text-slate-900 mt-2">{kpis?.sales_month || 0}</p>
+            {/* Ventas del Mes */}
+            <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                  <TrendingUp className="text-green-700" size={24} />
+                </div>
+                {getTrendIcon(kpis?.sales_month_trend)}
               </div>
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <TrendingUp className="text-blue-700" size={24} />
+              <div className="space-y-1">
+                <p className="text-4xl font-heading font-bold text-slate-900">{kpis?.sales_month || 0}</p>
+                <p className="text-sm font-medium text-slate-600">Ventas del Mes</p>
+                <p className="text-xs text-slate-500">{getTrendText(kpis?.sales_month_trend)} vs mes anterior ({kpis?.sales_last_month_period || 0})</p>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 font-medium">Incidencias Abiertas</p>
-                <p className="text-3xl font-heading font-bold text-slate-900 mt-2">{kpis?.incidents?.open || 0}</p>
+            {/* Incidencias Activas */}
+            <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center">
+                  <AlertCircle className="text-amber-700" size={24} />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertCircle className="text-red-700" size={24} />
+              <div className="space-y-1">
+                <p className="text-4xl font-heading font-bold text-slate-900">
+                  {(kpis?.incidents?.open || 0) + (kpis?.incidents?.in_progress || 0)}
+                </p>
+                <p className="text-sm font-medium text-slate-600">Incidencias Activas</p>
+                <p className="text-xs text-slate-500">{kpis?.incidents?.over_48h || 0} llevan más de 48h</p>
               </div>
-            </div>
-          </Card>
+            </Card>
 
-          <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-600 font-medium">Equipo Activo</p>
-                <p className="text-3xl font-heading font-bold text-slate-900 mt-2">{ranking.length}</p>
+            {/* Equipo */}
+            <Card className="p-6 bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-3">
+                <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                  <Users className="text-purple-700" size={24} />
+                </div>
               </div>
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Users className="text-purple-700" size={24} />
+              <div className="space-y-1">
+                <p className="text-4xl font-heading font-bold text-slate-900">{ranking.length}</p>
+                <p className="text-sm font-medium text-slate-600">Empleados Activos</p>
+                <p className="text-xs text-slate-500">Trabajando este mes</p>
               </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* 2. PREVISIÓN */}
+        {kpis?.objective && (
+          <div>
+            <h2 className="text-lg font-heading font-semibold text-slate-900 mb-4">Previsión de Fin de Mes</h2>
+            <Card className="p-8 bg-white border-slate-200 shadow-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                      kpis.objective.status === 'green' ? 'bg-green-100' :
+                      kpis.objective.status === 'yellow' ? 'bg-yellow-100' : 'bg-red-100'
+                    }`}>
+                      <TargetIcon className={`${
+                        kpis.objective.status === 'green' ? 'text-green-700' :
+                        kpis.objective.status === 'yellow' ? 'text-yellow-700' : 'text-red-700'
+                      }`} size={24} />
+                    </div>
+                    <div>
+                      <p className="text-sm text-slate-600 font-medium">Objetivo Mensual</p>
+                      <p className="text-2xl font-heading font-bold text-slate-900">{kpis.objective.target} ventas</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-slate-600">Progreso actual</span>
+                        <span className="font-semibold text-slate-900">
+                          {kpis.objective.current} / {kpis.objective.target} ({kpis.objective.progress_pct}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
+                        <div 
+                          className={`h-3 rounded-full transition-all duration-500 ${
+                            kpis.objective.status === 'green' ? 'bg-green-500' :
+                            kpis.objective.status === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${Math.min(kpis.objective.progress_pct, 100)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-100">
+                      <p className="text-xs text-slate-500 mb-1">Ritmo esperado: {kpis.objective.expected_daily} ventas/día</p>
+                    </div>
+                  </div>
+                </div>
+
+                {kpis.objective.projection && (
+                  <div className="bg-slate-50 rounded-xl p-6 border border-slate-100">
+                    <p className="text-sm font-medium text-slate-700 mb-4">Proyección a fin de mes</p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-sm text-slate-600 mb-1">Total proyectado</p>
+                        <p className="text-3xl font-heading font-bold text-slate-900">{kpis.objective.projection.projected_total}</p>
+                      </div>
+
+                      <div className={`p-4 rounded-lg ${
+                        kpis.objective.projection.will_meet ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+                      }`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          {kpis.objective.projection.will_meet ? (
+                            <CheckCircle className="text-green-700" size={20} />
+                          ) : (
+                            <AlertCircle className="text-red-700" size={20} />
+                          )}
+                          <p className={`text-sm font-semibold ${
+                            kpis.objective.projection.will_meet ? 'text-green-900' : 'text-red-900'
+                          }`}>
+                            {kpis.objective.projection.will_meet ? '¡Objetivo alcanzable!' : 'Objetivo en riesgo'}
+                          </p>
+                        </div>
+                        <p className={`text-xs ${
+                          kpis.objective.projection.will_meet ? 'text-green-700' : 'text-red-700'
+                        }`}>
+                          {kpis.objective.projection.will_meet 
+                            ? `Superarás el objetivo por ${kpis.objective.projection.projected_gap} ventas`
+                            : `Faltan ${Math.abs(kpis.objective.projection.projected_gap)} ventas para alcanzar el objetivo`
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* 3. MIX COMPAÑÍAS */}
+        <div>
+          <h2 className="text-lg font-heading font-semibold text-slate-900 mb-4">Mix de Compañías</h2>
+          <Card className="p-6 bg-white border-slate-200 shadow-sm">
+            <div className="space-y-4">
+              {kpis?.sales_by_company?.map((company) => (
+                <div key={company._id} className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-900">{company._id}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500">{company.percentage}%</span>
+                      <span className="text-sm font-semibold text-slate-900">{company.count} ventas</span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                    <div 
+                      className="h-2 bg-gradient-to-r from-slate-600 to-slate-800 rounded-full transition-all duration-500"
+                      style={{ width: `${company.percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+              ))}
+              {(!kpis?.sales_by_company || kpis.sales_by_company.length === 0) && (
+                <p className="text-center text-slate-500 py-4">No hay datos disponibles</p>
+              )}
             </div>
           </Card>
         </div>
 
-        {/* Objetivo Mensual */}
-        {kpis?.objective && (
+        {/* 4. RANKING DEL EQUIPO */}
+        <div>
+          <h2 className="text-lg font-heading font-semibold text-slate-900 mb-4">Ranking del Equipo</h2>
           <Card className="p-6 bg-white border-slate-200 shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                kpis.objective.status === 'green' ? 'bg-green-100' :
-                kpis.objective.status === 'yellow' ? 'bg-yellow-100' : 'bg-red-100'
-              }`}>
-                <TargetIcon className={`${
-                  kpis.objective.status === 'green' ? 'text-green-700' :
-                  kpis.objective.status === 'yellow' ? 'text-yellow-700' : 'text-red-700'
-                }`} size={20} />
-              </div>
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-slate-900">Objetivo Mensual</h3>
-                <p className="text-sm text-slate-600">Progreso del equipo</p>
-              </div>
-            </div>
             <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-600">Progreso</span>
-                <span className="text-sm font-semibold text-slate-900">
-                  {kpis.objective.current} / {kpis.objective.target} ({kpis.objective.progress_pct}%)
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 rounded-full h-3 overflow-hidden">
-                <div 
-                  className={`h-3 rounded-full transition-all duration-500 ${
-                    kpis.objective.status === 'green' ? 'bg-green-500' :
-                    kpis.objective.status === 'yellow' ? 'bg-yellow-500' : 'bg-red-500'
-                  }`}
-                  style={{ width: `${Math.min(kpis.objective.progress_pct, 100)}%` }}
-                ></div>
-              </div>
-              <p className="text-xs text-slate-500">
-                Ritmo esperado: {kpis.objective.expected_daily.toFixed(1)} ventas/día
-              </p>
+              {ranking.map((member, index) => (
+                <div key={member.user_id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-base ${
+                      index === 0 ? 'bg-yellow-100 text-yellow-700' :
+                      index === 1 ? 'bg-slate-200 text-slate-700' :
+                      index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {index + 1}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-900">{member.name}</p>
+                      <p className="text-sm text-slate-500">Hoy: {member.sales_today} ventas</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-heading font-bold text-slate-900">{member.sales_month}</p>
+                    <p className="text-xs text-slate-500">este mes</p>
+                  </div>
+                </div>
+              ))}
+              {ranking.length === 0 && (
+                <p className="text-center text-slate-500 py-4">No hay datos del equipo</p>
+              )}
             </div>
           </Card>
-        )}
-
-        {/* Ranking del Equipo */}
-        <Card className="p-6 bg-white border-slate-200 shadow-sm">
-          <h3 className="text-xl font-heading font-semibold text-slate-900 mb-4">Ranking del Equipo</h3>
-          <div className="space-y-3">
-            {ranking.map((member, index) => (
-              <div key={member.user_id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
-                <div className="flex items-center gap-4">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                    index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                    index === 1 ? 'bg-slate-200 text-slate-700' :
-                    index === 2 ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {index + 1}
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">{member.name}</p>
-                    <p className="text-sm text-slate-500">Hoy: {member.sales_today} ventas</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-heading font-bold text-slate-900">{member.sales_month}</p>
-                  <p className="text-xs text-slate-500">este mes</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
+        </div>
 
         {/* Quick Sale Dialog */}
         <Dialog open={showQuickSale} onOpenChange={setShowQuickSale}>
@@ -356,6 +466,7 @@ const Dashboard = () => {
                         <SelectItem value="Solo Móvil">Solo Móvil</SelectItem>
                         <SelectItem value="Solo Fibra">Solo Fibra</SelectItem>
                         <SelectItem value="Pack Fibra + Móvil">Pack Fibra + Móvil</SelectItem>
+                        <SelectItem value="Pack Fibra + Móvil + TV">Pack Fibra + Móvil + TV</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -378,7 +489,7 @@ const Dashboard = () => {
               </div>
 
               {/* Mobile Line Data */}
-              {(saleForm.packType === 'Solo Móvil' || saleForm.packType === 'Pack Fibra + Móvil') && (
+              {(saleForm.packType === 'Solo Móvil' || saleForm.packType === 'Pack Fibra + Móvil' || saleForm.packType === 'Pack Fibra + Móvil + TV') && (
                 <div className="space-y-4">
                   <h4 className="font-semibold text-slate-900">Línea Móvil</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
