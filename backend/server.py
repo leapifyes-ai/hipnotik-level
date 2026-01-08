@@ -804,6 +804,146 @@ async def recommend_packs(pack_type: str, origin_company: Optional[str] = None, 
     recommendations.sort(key=lambda x: (x["score"], -x["price"]), reverse=True)
     return recommendations[:3]
 
+class ConfiguratorRequest(BaseModel):
+    pack_type: Literal["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil", "Pack Fibra + Móvil + TV"]
+    origin_company: Optional[str] = None
+    priority: Literal["Ahorrar", "Equilibrado", "Máxima calidad"]
+    mobile_gb: Optional[int] = None
+    fiber_speed_mbps: Optional[int] = None
+    minutes_type: Optional[str] = None
+    additional_lines: int = 0
+    tv_required: bool = False
+    tv_package_type: Optional[str] = None
+    respect_restrictions: bool = True
+
+@api_router.post("/calculator/configure")
+async def configure_packs(config: ConfiguratorRequest, user: User = Depends(get_current_user)):
+    # Filter active packs by type
+    query = {"active": True, "type": config.pack_type}
+    packs = await db.packs.find(query, {"_id": 0}).to_list(1000)
+    
+    if not packs:
+        return []
+    
+    recommendations = []
+    
+    for pack in packs:
+        # Parse dates
+        if isinstance(pack["created_at"], str):
+            pack["created_at"] = datetime.fromisoformat(pack["created_at"])
+        if pack.get("validity_start") and isinstance(pack["validity_start"], str):
+            pack["validity_start"] = datetime.fromisoformat(pack["validity_start"])
+        if pack.get("validity_end") and isinstance(pack["validity_end"], str):
+            pack["validity_end"] = datetime.fromisoformat(pack["validity_end"])
+        
+        # Check restrictions
+        if config.respect_restrictions and config.origin_company and pack.get("restrictions"):
+            if config.origin_company.lower() not in pack["restrictions"].lower() and "solo" in pack["restrictions"].lower():
+                continue
+        
+        # Check TV requirement
+        if config.tv_required and not pack.get("tv_supported"):
+            continue
+        
+        # Calculate score
+        score = 0
+        fit_details = []
+        
+        # Priority weights
+        price_weight = 3 if config.priority == "Ahorrar" else (2 if config.priority == "Equilibrado" else 1)
+        quality_weight = 1 if config.priority == "Ahorrar" else (2 if config.priority == "Equilibrado" else 3)
+        
+        # Mobile GB fit
+        if config.mobile_gb and pack.get("mobile_gb"):
+            gb_diff = abs(pack["mobile_gb"] - config.mobile_gb)
+            if pack["mobile_gb"] >= config.mobile_gb:
+                gb_score = max(0, 20 - (gb_diff / 10))
+                score += gb_score * quality_weight
+                fit_details.append(f"GB: {pack['mobile_gb']}GB (pedido: {config.mobile_gb}GB)")
+            else:
+                score -= 10  # Penalize if below needed
+        
+        # Fiber speed fit
+        if config.fiber_speed_mbps and pack.get("fiber_speed_mbps"):
+            speed_diff = abs(pack["fiber_speed_mbps"] - config.fiber_speed_mbps)
+            if pack["fiber_speed_mbps"] >= config.fiber_speed_mbps:
+                speed_score = max(0, 20 - (speed_diff / 100))
+                score += speed_score * quality_weight
+                fit_details.append(f"Fibra: {pack['fiber_speed_mbps']}Mbps")
+            else:
+                score -= 10
+        
+        # Price score (inverse - lower is better for "Ahorrar")
+        max_price = 100
+        price_score = ((max_price - pack["price"]) / max_price) * 20
+        score += price_score * price_weight
+        
+        # TV bonus
+        if config.tv_required and pack.get("tv_supported"):
+            score += 15
+            fit_details.append(f"TV: {pack.get('tv_package_type', 'incluida')}")
+        
+        # Additional lines
+        if config.additional_lines > 0 and pack.get("additional_lines_supported"):
+            score += 10
+            fit_details.append(f"Líneas adicionales soportadas")
+        
+        # New pack bonus
+        is_new = (datetime.now(timezone.utc) - pack["created_at"]).days < 30
+        if is_new:
+            score += 5
+        
+        # Origin company bonus
+        if config.origin_company and pack.get("observations"):
+            if config.origin_company.lower() in pack["observations"].lower():
+                score += 10
+                fit_details.append(f"Especial para {config.origin_company}")
+        
+        recommendations.append({
+            **pack,
+            "score": round(score, 2),
+            "fit_details": fit_details,
+            "is_new": is_new,
+            "badges": []
+        })
+    
+    # Sort by score
+    recommendations.sort(key=lambda x: x["score"], reverse=True)
+    
+    # Assign badges to top 3
+    if len(recommendations) > 0:
+        recommendations[0]["badges"].append("Mejor valor")
+    
+    # Find cheapest
+    if len(recommendations) > 1:
+        cheapest_idx = min(range(len(recommendations[:3])), key=lambda i: recommendations[i]["price"])
+        if "Más barato" not in recommendations[cheapest_idx]["badges"]:
+            recommendations[cheapest_idx]["badges"].append("Más barato")
+    
+    # Find most complete (highest quality features)
+    if len(recommendations) > 2:
+        most_complete_idx = 0
+        max_features = 0
+        for i, pack in enumerate(recommendations[:3]):
+            feature_count = sum([
+                1 if pack.get("mobile_gb", 0) > 20 else 0,
+                1 if pack.get("fiber_speed_mbps", 0) > 500 else 0,
+                1 if pack.get("tv_supported") else 0,
+                1 if pack.get("additional_lines_supported") else 0
+            ])
+            if feature_count > max_features:
+                max_features = feature_count
+                most_complete_idx = i
+        if most_complete_idx > 0:
+            recommendations[most_complete_idx]["badges"].append("Más completo")
+    
+    # Add "Nueva" badge
+    for rec in recommendations[:3]:
+        if rec.get("is_new"):
+            rec["badges"].append("Nueva")
+    
+    return recommendations[:3]
+
 # ==================== EXPORT ENDPOINTS ====================
 
 @api_router.get("/export/sales/csv")
