@@ -1047,19 +1047,34 @@ async def seed_demo_data(user: User = Depends(require_super_admin)):
     # Create demo packs
     companies = ["Jazztel", "MásMóvil", "Pepephone", "Simyo"]
     demo_packs = []
-    for i, company in enumerate(companies):
-        for j, pack_type in enumerate(["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil"]):
-            demo_packs.append({
-                "id": f"demo-pack-{i}-{j}",
-                "company": company,
-                "name": f"{pack_type} - {company}",
-                "type": pack_type,
-                "price": 25.0 + (i * 5) + (j * 10),
-                "features": f"Características del pack {pack_type}",
-                "active": True,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "is_demo": True
-            })
+    
+    # Jazztel packs
+    demo_packs.extend([
+        {"id": "pack-jazztel-1", "company": "Jazztel", "name": "Móvil 20GB", "type": "Solo Móvil", "price": 15.0, "features": "20GB + Minutos ilimitados", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "mobile_only", "mobile_gb": 20, "minutes_type": "ilimitadas"},
+        {"id": "pack-jazztel-2", "company": "Jazztel", "name": "Fibra 600Mb", "type": "Solo Fibra", "price": 30.0, "features": "600Mbps simétrica", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "fiber_only", "fiber_speed_mbps": 600},
+        {"id": "pack-jazztel-3", "company": "Jazztel", "name": "Pack Total 1Gb + 50GB", "type": "Pack Fibra + Móvil", "price": 45.0, "features": "1Gbps + 50GB móvil + TV Básica", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "bundle_tv", "fiber_speed_mbps": 1000, "mobile_gb": 50, "minutes_type": "ilimitadas", "tv_supported": True, "tv_package_type": "basic", "additional_lines_supported": True, "lines_included": 1},
+    ])
+    
+    # MásMóvil packs
+    demo_packs.extend([
+        {"id": "pack-masmovil-1", "company": "MásMóvil", "name": "Móvil Ilimitado 80GB", "type": "Solo Móvil", "price": 25.0, "features": "80GB + Llamadas ilimitadas", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "mobile_only", "mobile_gb": 80, "minutes_type": "ilimitadas"},
+        {"id": "pack-masmovil-2", "company": "MásMóvil", "name": "Fibra 1Gb", "type": "Solo Fibra", "price": 35.0, "features": "1Gbps simétrica", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "fiber_only", "fiber_speed_mbps": 1000},
+        {"id": "pack-masmovil-3", "company": "MásMóvil", "name": "Pack Familia 600Mb + 100GB", "type": "Pack Fibra + Móvil", "price": 55.0, "features": "600Mbps + 100GB + 2 líneas", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "bundle", "fiber_speed_mbps": 600, "mobile_gb": 100, "minutes_type": "ilimitadas", "additional_lines_supported": True, "lines_included": 2},
+        {"id": "pack-masmovil-4", "company": "MásMóvil", "name": "Pack Premium TV Deportes", "type": "Pack Fibra + Móvil + TV", "price": 70.0, "features": "1Gbps + 120GB + TV Deportes", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "bundle_tv", "fiber_speed_mbps": 1000, "mobile_gb": 120, "minutes_type": "ilimitadas", "tv_supported": True, "tv_package_type": "sports", "additional_lines_supported": True, "lines_included": 1},
+    ])
+    
+    # Pepephone packs  
+    demo_packs.extend([
+        {"id": "pack-pepephone-1", "company": "Pepephone", "name": "Móvil Smart 30GB", "type": "Solo Móvil", "price": 18.0, "features": "30GB + Llamadas ilimitadas", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "mobile_only", "mobile_gb": 30, "minutes_type": "ilimitadas"},
+        {"id": "pack-pepephone-2", "company": "Pepephone", "name": "Pack Económico 300Mb + 40GB", "type": "Pack Fibra + Móvil", "price": 38.0, "features": "300Mbps + 40GB", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "bundle", "fiber_speed_mbps": 300, "mobile_gb": 40, "minutes_type": "ilimitadas", "restrictions": "Solo clientes que vienen de Digi"},
+        {"id": "pack-pepephone-3", "company": "Pepephone", "name": "Pack Streaming 600Mb + 60GB", "type": "Pack Fibra + Móvil + TV", "price": 50.0, "features": "600Mbps + 60GB + Streaming", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "bundle_tv", "fiber_speed_mbps": 600, "mobile_gb": 60, "minutes_type": "ilimitadas", "tv_supported": True, "tv_package_type": "streaming"},
+    ])
+    
+    # Simyo packs
+    demo_packs.extend([
+        {"id": "pack-simyo-1", "company": "Simyo", "name": "Móvil Básico 10GB", "type": "Solo Móvil", "price": 12.0, "features": "10GB + 500 minutos", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "mobile_only", "mobile_gb": 10, "minutes_type": "limitadas"},
+        {"id": "pack-simyo-2", "company": "Simyo", "name": "Pack Light 300Mb + 25GB", "type": "Pack Fibra + Móvil", "price": 35.0, "features": "300Mbps + 25GB", "active": True, "created_at": datetime.now(timezone.utc).isoformat(), "is_demo": True, "category": "bundle", "fiber_speed_mbps": 300, "mobile_gb": 25, "minutes_type": "ilimitadas"},
+    ])
     
     await db.packs.insert_many(demo_packs)
     
