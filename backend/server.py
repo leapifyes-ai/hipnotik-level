@@ -133,13 +133,23 @@ class Sale(BaseModel):
 class PackCreate(BaseModel):
     company: str
     name: str
-    type: Literal["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil"]
+    type: Literal["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil", "Pack Fibra + Móvil + TV"]
     price: float
     features: str
     validity_start: Optional[datetime] = None
     validity_end: Optional[datetime] = None
     active: bool = True
     observations: Optional[str] = None
+    # Configurator fields
+    category: Optional[str] = None  # mobile_only/fiber_only/bundle/bundle_tv
+    fiber_speed_mbps: Optional[int] = None
+    mobile_gb: Optional[int] = None
+    minutes_type: Optional[str] = None  # ilimitadas/limitadas
+    lines_included: int = 1
+    additional_lines_supported: bool = False
+    tv_supported: bool = False
+    tv_package_type: Optional[str] = None  # basic/sports/streaming/other
+    restrictions: Optional[str] = None
 
 class Pack(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -156,6 +166,16 @@ class Pack(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     is_demo: bool = False
     is_new: bool = False
+    # Configurator fields
+    category: Optional[str] = None
+    fiber_speed_mbps: Optional[int] = None
+    mobile_gb: Optional[int] = None
+    minutes_type: Optional[str] = None
+    lines_included: int = 1
+    additional_lines_supported: bool = False
+    tv_supported: bool = False
+    tv_package_type: Optional[str] = None
+    restrictions: Optional[str] = None
 
 # ==================== INCIDENT MODELS ====================
 
