@@ -38,6 +38,25 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     fetchPacks();
+    
+    // Check for preloaded data from Calculator
+    const preloadData = localStorage.getItem('quickSalePreload');
+    if (preloadData) {
+      try {
+        const data = JSON.parse(preloadData);
+        setSaleForm(prev => ({
+          ...prev,
+          company: data.company,
+          packType: data.packType,
+          packId: data.packId
+        }));
+        setShowQuickSale(true);
+        localStorage.removeItem('quickSalePreload');
+        toast.success('Tarifa precargada desde el configurador');
+      } catch (error) {
+        console.error('Error loading preload data:', error);
+      }
+    }
   }, []);
 
   const fetchDashboardData = async () => {
