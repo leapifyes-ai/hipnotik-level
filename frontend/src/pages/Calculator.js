@@ -105,7 +105,7 @@ const Calculator = () => {
                     <SelectValue placeholder="Seleccionar (opcional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Ninguna</SelectItem>
+                    <SelectItem value="none">Ninguna</SelectItem>
                     <SelectItem value="Vodafone">Vodafone</SelectItem>
                     <SelectItem value="Orange">Orange</SelectItem>
                     <SelectItem value="Movistar">Movistar</SelectItem>
