@@ -41,7 +41,7 @@ const Calculator = () => {
       const response = await axios.post(`${API_URL}/calculator/recommend`, null, {
         params: {
           pack_type: packType,
-          origin_company: originCompany || undefined
+          origin_company: originCompany !== 'none' ? originCompany : undefined
         }
       });
       setRecommendations(response.data);
@@ -55,6 +55,24 @@ const Calculator = () => {
       setLoading(false);
     }
   };
+
+  if (!hasActivePacks) {
+    return (
+      <DashboardLayout>
+        <div className="p-4 md:p-8 space-y-6 pb-24 md:pb-8">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-heading font-bold text-slate-900 tracking-tight">Calculadora de Ofertas</h1>
+            <p className="text-slate-600 mt-1">Encuentra las mejores recomendaciones para tus clientes</p>
+          </div>
+          <Card className="p-12 bg-white border-slate-200 shadow-sm text-center">
+            <AlertCircle className="mx-auto text-slate-400 mb-4" size={48} />
+            <h3 className="text-xl font-heading font-semibold text-slate-900 mb-2">No hay tarifas activas configuradas</h3>
+            <p className="text-slate-600">Por favor, crea tarifas activas en la sección de Tarifas/Packs para poder usar la calculadora.</p>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
