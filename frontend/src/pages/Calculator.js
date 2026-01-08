@@ -4,7 +4,7 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Label } from '../components/ui/label';
-import { Calculator as CalcIcon, Sparkles } from 'lucide-react';
+import { Calculator as CalcIcon, Sparkles, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
 
@@ -12,9 +12,23 @@ const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const Calculator = () => {
   const [packType, setPackType] = useState('');
-  const [originCompany, setOriginCompany] = useState('');
+  const [originCompany, setOriginCompany] = useState('none');
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [hasActivePacks, setHasActivePacks] = useState(true);
+
+  useEffect(() => {
+    checkActivePacks();
+  }, []);
+
+  const checkActivePacks = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/packs?active_only=true`);
+      setHasActivePacks(response.data.length > 0);
+    } catch (error) {
+      console.error('Error checking packs:', error);
+    }
+  };
 
   const handleCalculate = async () => {
     if (!packType) {
