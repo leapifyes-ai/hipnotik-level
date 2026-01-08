@@ -375,9 +375,8 @@ class HipnotikAPITester:
             success, response = self.run_test(
                 "Add Incident Comment",
                 "POST",
-                f"incidents/{incident_id}/comments",
+                f"incidents/{incident_id}/comments?comment=Test comment for incident",
                 200,
-                data={"comment": "Test comment for incident"},
                 token=self.superadmin_token,
                 description="Add comment to incident"
             )
