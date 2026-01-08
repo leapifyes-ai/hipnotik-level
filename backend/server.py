@@ -582,11 +582,19 @@ async def get_incident_comments(incident_id: str, user: User = Depends(get_curre
 @api_router.get("/dashboard/kpis")
 async def get_dashboard_kpis(user: User = Depends(get_current_user)):
     today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday = today - timedelta(days=1)
     month_start = today.replace(day=1)
+    last_month_start = (month_start - timedelta(days=1)).replace(day=1)
+    last_month_end = month_start - timedelta(days=1)
     
     # Sales today
     sales_today = await db.sales.count_documents({
         "created_at": {"$gte": today.isoformat()}
+    })
+    
+    # Sales yesterday
+    sales_yesterday = await db.sales.count_documents({
+        "created_at": {"$gte": yesterday.isoformat(), "$lt": today.isoformat()}
     })
     
     # Sales this month
@@ -594,11 +602,27 @@ async def get_dashboard_kpis(user: User = Depends(get_current_user)):
         "created_at": {"$gte": month_start.isoformat()}
     })
     
+    # Sales last month (same period)
+    current_day = today.day
+    last_month_same_day = last_month_start + timedelta(days=current_day - 1)
+    sales_last_month_period = await db.sales.count_documents({
+        "created_at": {"$gte": last_month_start.isoformat(), "$lt": last_month_same_day.isoformat()}
+    })
+    
+    # Calculate trends
+    today_trend = "up" if sales_today > sales_yesterday else ("down" if sales_today < sales_yesterday else "stable")
+    month_trend = "up" if sales_month > sales_last_month_period else ("down" if sales_month < sales_last_month_period else "stable")
+    
     # Sales by company
     pipeline = [
         {"$group": {"_id": "$company", "count": {"$sum": 1}}}
     ]
     sales_by_company = await db.sales.aggregate(pipeline).to_list(100)
+    total_sales = sum([item["count"] for item in sales_by_company])
+    
+    # Add percentages
+    for item in sales_by_company:
+        item["percentage"] = round((item["count"] / total_sales * 100), 1) if total_sales > 0 else 0
     
     # Sales by status
     status_pipeline = [
@@ -611,12 +635,20 @@ async def get_dashboard_kpis(user: User = Depends(get_current_user)):
     incidents_progress = await db.incidents.count_documents({"status": "En Proceso"})
     incidents_closed = await db.incidents.count_documents({"status": "Cerrada"})
     
+    # Incidents > 48h
+    two_days_ago = (today - timedelta(days=2)).isoformat()
+    incidents_over_48h = await db.incidents.count_documents({
+        "status": {"$in": ["Abierta", "En Proceso"]},
+        "created_at": {"$lt": two_days_ago}
+    })
+    
     # Objective progress
     current_month = datetime.now(timezone.utc).month
     current_year = datetime.now(timezone.utc).year
     objective = await db.objectives.find_one({"month": current_month, "year": current_year}, {"_id": 0})
     
     objective_data = None
+    projection = None
     if objective:
         days_in_month = 30
         current_day = datetime.now(timezone.utc).day
@@ -624,8 +656,18 @@ async def get_dashboard_kpis(user: User = Depends(get_current_user)):
         expected_now = expected_daily * current_day
         progress_pct = (sales_month / objective["team_target"]) * 100 if objective["team_target"] > 0 else 0
         
+        # Projection for end of month
+        if current_day > 0:
+            daily_avg = sales_month / current_day
+            projected_end_month = round(daily_avg * days_in_month)
+            projection = {
+                "projected_total": projected_end_month,
+                "projected_gap": projected_end_month - objective["team_target"],
+                "will_meet": projected_end_month >= objective["team_target"]
+            }
+        
         # Traffic light
-        if progress_pct >= expected_now / objective["team_target"] * 100:
+        if progress_pct >= (expected_now / objective["team_target"] * 100):
             status_light = "green"
         elif progress_pct >= (expected_now / objective["team_target"] * 100) * 0.8:
             status_light = "yellow"
@@ -637,18 +679,24 @@ async def get_dashboard_kpis(user: User = Depends(get_current_user)):
             "current": sales_month,
             "progress_pct": round(progress_pct, 1),
             "expected_daily": round(expected_daily, 1),
-            "status": status_light
+            "status": status_light,
+            "projection": projection
         }
     
     return {
         "sales_today": sales_today,
+        "sales_today_trend": today_trend,
+        "sales_yesterday": sales_yesterday,
         "sales_month": sales_month,
+        "sales_month_trend": month_trend,
+        "sales_last_month_period": sales_last_month_period,
         "sales_by_company": sales_by_company,
         "sales_by_status": sales_by_status,
         "incidents": {
             "open": incidents_open,
             "in_progress": incidents_progress,
-            "closed": incidents_closed
+            "closed": incidents_closed,
+            "over_48h": incidents_over_48h
         },
         "objective": objective_data
     }
