@@ -9,7 +9,7 @@ import {
   AlertCircle, 
   Target, 
   Clock, 
-  Contacts as ContactsIcon,
+  Contact as ContactsIcon,
   Calculator as CalcIcon,
   FileText,
   Settings as SettingsIcon,
