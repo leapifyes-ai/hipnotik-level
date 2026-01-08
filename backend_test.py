@@ -555,9 +555,8 @@ class HipnotikAPITester:
         success, response = self.run_test(
             "Calculate Recommendations",
             "POST",
-            "calculator/recommend",
+            "calculator/recommend?pack_type=Solo Móvil&origin_company=Vodafone",
             200,
-            data={"pack_type": "Solo Móvil", "origin_company": "Vodafone"},
             token=self.superadmin_token,
             description="Get pack recommendations"
         )
