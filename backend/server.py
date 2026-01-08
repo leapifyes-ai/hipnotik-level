@@ -664,7 +664,7 @@ async def create_objective(obj_data: ObjectiveCreate, user: User = Depends(requi
     return objective
 
 @api_router.get("/objectives")
-async def get_objectives(user: User = Depends(get_current_user)):
+async def get_objectives(user: User = Depends(require_super_admin)):
     objectives = await db.objectives.find({}, {"_id": 0}).sort("year", -1).sort("month", -1).to_list(100)
     for o in objectives:
         if isinstance(o["created_at"], str):
