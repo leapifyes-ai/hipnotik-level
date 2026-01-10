@@ -488,6 +488,35 @@ async def get_sales(user: User = Depends(get_current_user)):
             s["updated_at"] = datetime.fromisoformat(s["updated_at"])
     return sales
 
+@api_router.get("/sales/{sale_id}")
+async def get_sale_detail(sale_id: str, user: User = Depends(get_current_user)):
+    """Get detailed sale information including client and pack data"""
+    sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Check access for employees
+    if user.role == "Empleado" and sale.get("created_by") != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get client info
+    client = await db.clients.find_one({"id": sale["client_id"]}, {"_id": 0})
+    
+    # Get pack info if pack_id exists
+    pack = None
+    if sale.get("pack_id"):
+        pack = await db.packs.find_one({"id": sale["pack_id"]}, {"_id": 0})
+    
+    # Get employee info
+    employee = await db.users.find_one({"id": sale["created_by"]}, {"_id": 0, "password": 0})
+    
+    return {
+        "sale": sale,
+        "client": client,
+        "pack": pack,
+        "employee": {"id": employee.get("id"), "name": employee.get("name")} if employee else None
+    }
+
 @api_router.patch("/sales/{sale_id}/status")
 async def update_sale_status(sale_id: str, status: str, user: User = Depends(get_current_user)):
     result = await db.sales.update_one(
