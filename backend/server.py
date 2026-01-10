@@ -38,6 +38,13 @@ security = HTTPBearer()
 
 # Create the main app
 app = FastAPI()
+@app.get("/")
+def root():
+    return {
+        "status": "ok",
+        "service": "hipnotik-level",
+        "message": "API running"
+    }
 api_router = APIRouter(prefix="/api")
 
 # ==================== AUTH MODELS ====================
