@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   LayoutDashboard, 
@@ -16,7 +16,8 @@ import {
   Menu,
   X,
   Bell,
-  LogOut
+  LogOut,
+  CheckCheck
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import axios from 'axios';
@@ -26,21 +27,99 @@ const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 export const DashboardLayout = ({ children }) => {
   const { user, logout, isSuperAdmin } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
 
   React.useEffect(() => {
     fetchNotifications();
+    fetchUnreadCount();
+    
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(() => {
+      fetchUnreadCount();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchNotifications = async () => {
     try {
       const response = await axios.get(`${API_URL}/notifications`);
-      setNotifications(response.data.filter(n => !n.read).slice(0, 5));
+      setNotifications(response.data.slice(0, 10));
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
+  };
+
+  const fetchUnreadCount = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/notifications/unread-count`);
+      setUnreadCount(response.data.count);
+    } catch (error) {
+      console.error('Failed to fetch unread count:', error);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    // Mark as read
+    try {
+      await axios.patch(`${API_URL}/notifications/${notification.id}/read`);
+      fetchUnreadCount();
+      fetchNotifications();
+    } catch (error) {
+      console.error('Failed to mark notification as read:', error);
+    }
+
+    // Navigate to related item
+    if (notification.related_type === 'sale') {
+      navigate('/sales');
+    } else if (notification.related_type === 'incident') {
+      navigate('/incidents');
+    }
+    
+    setShowNotifications(false);
+  };
+
+  const handleMarkAllRead = async () => {
+    try {
+      await axios.patch(`${API_URL}/notifications/mark-all-read`);
+      fetchUnreadCount();
+      fetchNotifications();
+    } catch (error) {
+      console.error('Failed to mark all as read:', error);
+    }
+  };
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'new_sale':
+        return <ShoppingBag size={16} className="text-green-600" />;
+      case 'incident_opened':
+        return <AlertCircle size={16} className="text-red-600" />;
+      case 'incident_resolved':
+        return <CheckCheck size={16} className="text-blue-600" />;
+      case 'goal_achieved':
+        return <Target size={16} className="text-yellow-600" />;
+      default:
+        return <Bell size={16} className="text-slate-600" />;
+    }
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Ahora';
+    if (diffMins < 60) return `Hace ${diffMins}m`;
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    return `Hace ${diffDays}d`;
   };
 
   const navigation = [
