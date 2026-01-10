@@ -97,21 +97,25 @@ class Client(BaseModel):
 class MobileLineData(BaseModel):
     number: str
     type: Literal["Postpago", "Prepago"]
+    gb_data: Optional[int] = None
     iccid: Optional[str] = None
     origin_company: Optional[str] = None
 
 class FiberData(BaseModel):
     address: Optional[str] = None
-    speed: Optional[str] = None
+    speed_mbps: Optional[int] = None
 
 class SaleCreate(BaseModel):
     client_id: Optional[str] = None
     client_data: Optional[ClientCreate] = None
     company: str
-    pack_type: Literal["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil"]
+    pack_type: Literal["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil", "Pack Fibra + Móvil + TV"]
     pack_id: Optional[str] = None
+    pack_name: Optional[str] = None
+    pack_price: Optional[float] = None
     mobile_lines: Optional[List[MobileLineData]] = None
     fiber: Optional[FiberData] = None
+    notes: Optional[str] = None
 
 class Sale(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -120,8 +124,11 @@ class Sale(BaseModel):
     company: str
     pack_type: str
     pack_id: Optional[str] = None
+    pack_name: Optional[str] = None
+    pack_price: Optional[float] = None
     mobile_lines: Optional[List[Dict]] = None
     fiber: Optional[Dict] = None
+    notes: Optional[str] = None
     status: str = "Registrado"
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -437,8 +444,11 @@ async def create_sale(sale_data: SaleCreate, user: User = Depends(get_current_us
         company=sale_data.company,
         pack_type=sale_data.pack_type,
         pack_id=sale_data.pack_id,
+        pack_name=sale_data.pack_name,
+        pack_price=sale_data.pack_price,
         mobile_lines=[line.model_dump() for line in sale_data.mobile_lines] if sale_data.mobile_lines else None,
         fiber=sale_data.fiber.model_dump() if sale_data.fiber else None,
+        notes=sale_data.notes,
         created_by=user.id
     )
     
@@ -447,12 +457,14 @@ async def create_sale(sale_data: SaleCreate, user: User = Depends(get_current_us
     doc["updated_at"] = doc["updated_at"].isoformat()
     await db.sales.insert_one(doc)
     
-    # Create notification
+    # Create notification for all SuperAdmins
     notif = Notification(
         user_id="all",
         title="Nueva venta registrada",
         message=f"{user.name} ha registrado una venta de {sale.company}",
-        type="new_sale"
+        type="new_sale",
+        related_id=sale.id,
+        related_type="sale"
     )
     notif_doc = notif.model_dump()
     notif_doc["created_at"] = notif_doc["created_at"].isoformat()
