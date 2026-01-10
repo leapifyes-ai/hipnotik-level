@@ -274,10 +274,12 @@ class Contact(BaseModel):
 class Notification(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
+    user_id: str  # "all" for broadcast, or specific user_id
     title: str
     message: str
-    type: str
+    type: str  # new_sale, incident_opened, incident_resolved, goal_achieved, pending_over_24h
+    related_id: Optional[str] = None  # ID of related entity (sale_id, incident_id, etc.)
+    related_type: Optional[str] = None  # Type of related entity (sale, incident, etc.)
     read: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
