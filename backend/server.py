@@ -956,6 +956,33 @@ async def mark_notification_read(notification_id: str, user: User = Depends(get_
         raise HTTPException(status_code=404, detail="Notification not found")
     return {"message": "Notification marked as read"}
 
+@api_router.patch("/notifications/mark-all-read")
+async def mark_all_notifications_read(user: User = Depends(get_current_user)):
+    """Mark all notifications as read for the current user"""
+    if user.role == "SuperAdmin":
+        await db.notifications.update_many({}, {"$set": {"read": True}})
+    else:
+        # For employees, only mark their relevant notifications
+        employee_sales = await db.sales.find({"created_by": user.id}, {"id": 1, "_id": 0}).to_list(1000)
+        employee_sale_ids = [s["id"] for s in employee_sales]
+        
+        employee_incidents = await db.incidents.find(
+            {"$or": [{"created_by": user.id}, {"assigned_to": user.id}]}, 
+            {"id": 1, "_id": 0}
+        ).to_list(1000)
+        employee_incident_ids = [i["id"] for i in employee_incidents]
+        
+        await db.notifications.update_many(
+            {"$or": [
+                {"user_id": user.id},
+                {"related_id": {"$in": employee_sale_ids}, "related_type": "sale"},
+                {"related_id": {"$in": employee_incident_ids}, "related_type": "incident"}
+            ]},
+            {"$set": {"read": True}}
+        )
+    
+    return {"message": "All notifications marked as read"}
+
 # ==================== CALCULATOR ENDPOINT ====================
 
 @api_router.post("/calculator/recommend")
