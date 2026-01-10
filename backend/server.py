@@ -867,14 +867,87 @@ async def delete_contact(contact_id: str, user: User = Depends(require_super_adm
 
 # ==================== NOTIFICATION ENDPOINTS ====================
 
-@api_router.get("/notifications", response_model=List[Notification])
+@api_router.get("/notifications")
 async def get_notifications(user: User = Depends(get_current_user)):
-    query = {"$or": [{"user_id": user.id}, {"user_id": "all"}]}
+    """Get notifications based on user role.
+    SuperAdmin: sees all notifications
+    Empleado: sees only notifications related to their own actions
+    """
+    if user.role == "SuperAdmin":
+        # SuperAdmin sees all notifications
+        query = {}
+    else:
+        # Employees see only their notifications or broadcasts they created
+        query = {"$or": [
+            {"user_id": user.id},
+            {"user_id": "all", "created_by": user.id} if "created_by" in {} else {"user_id": user.id}
+        ]}
+        # Actually, employees should see notifications about their own sales/incidents
+        query = {"$or": [
+            {"user_id": user.id},
+        ]}
+    
     notifications = await db.notifications.find(query, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+    
+    # For SuperAdmin, get all. For employees, filter by their related items
+    if user.role == "SuperAdmin":
+        pass  # Already fetched all
+    else:
+        # Get employee's sales and incidents to filter relevant notifications
+        employee_sales = await db.sales.find({"created_by": user.id}, {"id": 1, "_id": 0}).to_list(1000)
+        employee_sale_ids = [s["id"] for s in employee_sales]
+        
+        employee_incidents = await db.incidents.find(
+            {"$or": [{"created_by": user.id}, {"assigned_to": user.id}]}, 
+            {"id": 1, "_id": 0}
+        ).to_list(1000)
+        employee_incident_ids = [i["id"] for i in employee_incidents]
+        
+        # Get all notifications and filter for employee
+        all_notifs = await db.notifications.find({}, {"_id": 0}).sort("created_at", -1).limit(100).to_list(100)
+        notifications = []
+        for n in all_notifs:
+            # Include if: directed to user, or related to their sales/incidents
+            if n.get("user_id") == user.id:
+                notifications.append(n)
+            elif n.get("related_id") in employee_sale_ids and n.get("related_type") == "sale":
+                notifications.append(n)
+            elif n.get("related_id") in employee_incident_ids and n.get("related_type") == "incident":
+                notifications.append(n)
+        notifications = notifications[:50]
+    
     for n in notifications:
-        if isinstance(n["created_at"], str):
+        if isinstance(n.get("created_at"), str):
             n["created_at"] = datetime.fromisoformat(n["created_at"])
+    
     return notifications
+
+@api_router.get("/notifications/unread-count")
+async def get_unread_notifications_count(user: User = Depends(get_current_user)):
+    """Get count of unread notifications for the current user"""
+    if user.role == "SuperAdmin":
+        count = await db.notifications.count_documents({"read": False})
+    else:
+        # For employees, count their relevant unread notifications
+        employee_sales = await db.sales.find({"created_by": user.id}, {"id": 1, "_id": 0}).to_list(1000)
+        employee_sale_ids = [s["id"] for s in employee_sales]
+        
+        employee_incidents = await db.incidents.find(
+            {"$or": [{"created_by": user.id}, {"assigned_to": user.id}]}, 
+            {"id": 1, "_id": 0}
+        ).to_list(1000)
+        employee_incident_ids = [i["id"] for i in employee_incidents]
+        
+        count = await db.notifications.count_documents({
+            "read": False,
+            "$or": [
+                {"user_id": user.id},
+                {"related_id": {"$in": employee_sale_ids}, "related_type": "sale"},
+                {"related_id": {"$in": employee_incident_ids}, "related_type": "incident"}
+            ]
+        })
+    
+    return {"count": count}
 
 @api_router.patch("/notifications/{notification_id}/read")
 async def mark_notification_read(notification_id: str, user: User = Depends(get_current_user)):
