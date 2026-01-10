@@ -143,16 +143,20 @@ export const DashboardLayout = ({ children }) => {
         <div className="flex items-center justify-between p-4">
           <h1 className="text-lg font-heading font-bold tracking-tight">HIPNOTIK LEVEL</h1>
           <div className="flex items-center gap-2">
-            <button
-              data-testid="notifications-bell"
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 hover:bg-slate-800 rounded-lg transition-colors"
-            >
-              <Bell size={20} />
-              {notifications.length > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-              )}
-            </button>
+            <div className="relative">
+              <button
+                data-testid="notifications-bell"
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative p-2 hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-xs font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
             <button
               data-testid="mobile-menu-toggle"
               onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -162,6 +166,54 @@ export const DashboardLayout = ({ children }) => {
             </button>
           </div>
         </div>
+        
+        {/* Mobile Notifications Dropdown */}
+        {showNotifications && (
+          <div className="absolute top-full right-2 mt-1 w-80 max-w-[calc(100vw-1rem)] bg-white rounded-lg shadow-xl border border-slate-200 z-50 overflow-hidden">
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <h3 className="font-semibold text-slate-900">Notificaciones</h3>
+              {unreadCount > 0 && (
+                <button 
+                  onClick={handleMarkAllRead}
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                >
+                  Marcar todas leídas
+                </button>
+              )}
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="p-4 text-center text-slate-500 text-sm">
+                  No hay notificaciones
+                </div>
+              ) : (
+                notifications.map((notif) => (
+                  <button
+                    key={notif.id}
+                    onClick={() => handleNotificationClick(notif)}
+                    className={`w-full p-3 text-left hover:bg-slate-50 border-b border-slate-100 transition-colors ${
+                      !notif.read ? 'bg-blue-50/50' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">{getNotificationIcon(notif.type)}</div>
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm ${!notif.read ? 'font-semibold text-slate-900' : 'text-slate-700'}`}>
+                          {notif.title}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">{notif.message}</p>
+                        <p className="text-xs text-slate-400 mt-1">{formatTimeAgo(notif.created_at)}</p>
+                      </div>
+                      {!notif.read && (
+                        <div className="w-2 h-2 bg-blue-500 rounded-full mt-1.5"></div>
+                      )}
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Sidebar - Desktop */}
