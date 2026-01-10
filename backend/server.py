@@ -583,6 +583,20 @@ async def create_incident(incident_data: IncidentCreate, user: User = Depends(ge
     doc["created_at"] = doc["created_at"].isoformat()
     doc["updated_at"] = doc["updated_at"].isoformat()
     await db.incidents.insert_one(doc)
+    
+    # Create notification for incident opened
+    notif = Notification(
+        user_id="all",
+        title="Nueva incidencia abierta",
+        message=f"{user.name} ha abierto una incidencia: {incident.title}",
+        type="incident_opened",
+        related_id=incident.id,
+        related_type="incident"
+    )
+    notif_doc = notif.model_dump()
+    notif_doc["created_at"] = notif_doc["created_at"].isoformat()
+    await db.notifications.insert_one(notif_doc)
+    
     return incident
 
 @api_router.get("/incidents", response_model=List[Incident])
