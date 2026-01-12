@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/card';
@@ -25,6 +26,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [kpis, setKpis] = useState(null);
   const [ranking, setRanking] = useState([]);
   const [showQuickSale, setShowQuickSale] = useState(false);
