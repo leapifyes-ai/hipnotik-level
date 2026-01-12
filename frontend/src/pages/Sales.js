@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '../components/DashboardLayout';
+import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
@@ -24,12 +25,28 @@ import {
   Package,
   DollarSign,
   Clock,
-  ChevronRight
+  ChevronRight,
+  Edit2,
+  Save,
+  Star,
+  TrendingUp
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL + '/api';
 
+// Sale statuses
+const SALE_STATUSES = [
+  "Registrado",
+  "En proceso",
+  "Incidencia",
+  "Instalado",
+  "Modificado",
+  "Cancelado",
+  "Finalizado"
+];
+
 const Sales = () => {
+  const { user, isSuperAdmin } = useAuth();
   const [sales, setSales] = useState([]);
   const [clients, setClients] = useState({});
   const [users, setUsers] = useState({});
@@ -43,6 +60,8 @@ const Sales = () => {
   const [selectedSale, setSelectedSale] = useState(null);
   const [saleDetail, setSaleDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
   
   // New sale dialog state
   const [showNewSale, setShowNewSale] = useState(false);
@@ -98,6 +117,19 @@ const Sales = () => {
     try {
       const response = await axios.get(`${API_URL}/sales/${saleId}`);
       setSaleDetail(response.data);
+      // Prepare edit form
+      const sale = response.data.sale;
+      setEditForm({
+        company: sale.company,
+        pack_type: sale.pack_type,
+        pack_name: sale.pack_name || '',
+        pack_price: sale.pack_price?.toString() || '',
+        fiber_speed: sale.fiber?.speed_mbps?.toString() || '',
+        fiber_address: sale.fiber?.address || '',
+        mobile_lines: sale.mobile_lines || [],
+        notes: sale.notes || '',
+        status: sale.status
+      });
     } catch (error) {
       console.error('Error fetching sale detail:', error);
       toast.error('Error al cargar detalle de venta');
@@ -109,20 +141,65 @@ const Sales = () => {
   const handleSaleClick = (sale) => {
     setSelectedSale(sale);
     setShowDetail(true);
+    setIsEditing(false);
     fetchSaleDetail(sale.id);
+  };
+
+  const canEditSale = (sale) => {
+    // SuperAdmin can edit all, employees can edit their own
+    return isSuperAdmin || sale.created_by === user?.id;
+  };
+
+  const handleStatusChange = async (newStatus) => {
+    if (!selectedSale) return;
+    
+    try {
+      await axios.patch(`${API_URL}/sales/${selectedSale.id}/status?status=${newStatus}`);
+      toast.success('Estado actualizado');
+      fetchSaleDetail(selectedSale.id);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al actualizar estado');
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!selectedSale) return;
+    
+    try {
+      const payload = {
+        company: editForm.company,
+        pack_type: editForm.pack_type,
+        pack_name: editForm.pack_name || null,
+        pack_price: editForm.pack_price ? parseFloat(editForm.pack_price) : null,
+        fiber: (editForm.fiber_speed || editForm.fiber_address) ? {
+          speed_mbps: editForm.fiber_speed ? parseInt(editForm.fiber_speed) : null,
+          address: editForm.fiber_address || null
+        } : null,
+        mobile_lines: editForm.mobile_lines?.length > 0 ? editForm.mobile_lines : null,
+        notes: editForm.notes || null,
+        status: editForm.status
+      };
+
+      await axios.put(`${API_URL}/sales/${selectedSale.id}`, payload);
+      toast.success('Venta actualizada');
+      setIsEditing(false);
+      fetchSaleDetail(selectedSale.id);
+      fetchData();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Error al actualizar venta');
+    }
   };
 
   const handleNewSale = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!saleForm.clientName || !saleForm.clientPhone || !saleForm.company || !saleForm.packType) {
       toast.error('Por favor completa los campos requeridos');
       return;
     }
 
     try {
-      // Filter out empty mobile lines
       const validMobileLines = saleForm.mobileLines.filter(line => line.number.trim() !== '');
       
       const payload = {
@@ -207,15 +284,26 @@ const Sales = () => {
   const getStatusColor = (status) => {
     const colors = {
       'Registrado': 'bg-blue-100 text-blue-700',
-      'Subido a compañía': 'bg-purple-100 text-purple-700',
-      'Validación pendiente': 'bg-yellow-100 text-yellow-700',
-      'Instalación programada': 'bg-indigo-100 text-indigo-700',
-      'Instalado': 'bg-green-100 text-green-700',
-      'Finalizado': 'bg-emerald-100 text-emerald-700',
+      'En proceso': 'bg-purple-100 text-purple-700',
       'Incidencia': 'bg-red-100 text-red-700',
-      'Cancelado': 'bg-slate-100 text-slate-700'
+      'Instalado': 'bg-green-100 text-green-700',
+      'Modificado': 'bg-yellow-100 text-yellow-700',
+      'Cancelado': 'bg-slate-100 text-slate-700',
+      'Finalizado': 'bg-emerald-100 text-emerald-700'
     };
     return colors[status] || 'bg-slate-100 text-slate-700';
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 70) return 'text-green-600';
+    if (score >= 40) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBadge = (score) => {
+    if (score >= 70) return 'bg-green-100 text-green-700';
+    if (score >= 40) return 'bg-yellow-100 text-yellow-700';
+    return 'bg-red-100 text-red-700';
   };
 
   const filteredSales = sales.filter(sale => {
@@ -225,7 +313,6 @@ const Sales = () => {
   });
 
   const companies = [...new Set(sales.map(s => s.company))];
-  const statuses = [...new Set(sales.map(s => s.status))];
 
   const needsMobile = saleForm.packType === 'Solo Móvil' || saleForm.packType.includes('Móvil');
   const needsFiber = saleForm.packType.includes('Fibra');
@@ -260,7 +347,7 @@ const Sales = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos los estados</SelectItem>
-                  {statuses.map(status => (
+                  {SALE_STATUSES.map(status => (
                     <SelectItem key={status} value={status}>{status}</SelectItem>
                   ))}
                 </SelectContent>
@@ -294,14 +381,15 @@ const Sales = () => {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Cliente</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Teléfono</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Compañía</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Tarifa</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Estado</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Fecha</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Empleado</th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Detalle</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Score</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Cliente</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Compañía</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Tarifa</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Precio</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Estado</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Fecha</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">Empleado</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-700 uppercase tracking-wider">Detalle</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -314,34 +402,42 @@ const Sales = () => {
                         className="hover:bg-slate-50 transition-colors cursor-pointer"
                         onClick={() => handleSaleClick(sale)}
                       >
-                        <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                        <td className="px-4 py-4">
+                          <div className="flex items-center gap-1">
+                            <Star size={14} className={getScoreColor(sale.score || 0)} />
+                            <span className={`text-sm font-bold ${getScoreColor(sale.score || 0)}`}>
+                              {sale.score || 0}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4 text-sm font-medium text-slate-900">
                           {client?.name || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 font-mono">
-                          {client?.phone || 'N/A'}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-900">
+                        <td className="px-4 py-4 text-sm text-slate-900">
                           {sale.company}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
+                        <td className="px-4 py-4 text-sm text-slate-600">
                           {sale.pack_name || sale.pack_type}
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-4 text-sm font-medium text-slate-900">
+                          {sale.pack_price ? `${sale.pack_price}€` : '-'}
+                        </td>
+                        <td className="px-4 py-4">
                           <Badge className={`${getStatusColor(sale.status)} text-xs`}>
                             {sale.status}
                           </Badge>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
+                        <td className="px-4 py-4 text-sm text-slate-600">
                           {new Date(sale.created_at).toLocaleDateString('es-ES', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
                           })}
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
+                        <td className="px-4 py-4 text-sm text-slate-600">
                           {users[sale.created_by] || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 text-center">
+                        <td className="px-4 py-4 text-center">
                           <ChevronRight size={18} className="text-slate-400 mx-auto" />
                         </td>
                       </tr>
@@ -360,9 +456,34 @@ const Sales = () => {
 
         {/* Sale Detail Sheet */}
         <Sheet open={showDetail} onOpenChange={setShowDetail}>
-          <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
             <SheetHeader>
-              <SheetTitle className="text-2xl font-heading">Detalle de Venta</SheetTitle>
+              <div className="flex items-center justify-between">
+                <SheetTitle className="text-2xl font-heading">Detalle de Venta</SheetTitle>
+                {saleDetail && canEditSale(saleDetail.sale) && !isEditing && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                    data-testid="edit-sale-button"
+                  >
+                    <Edit2 size={16} className="mr-1" />
+                    Editar
+                  </Button>
+                )}
+                {isEditing && (
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
+                      <X size={16} className="mr-1" />
+                      Cancelar
+                    </Button>
+                    <Button size="sm" onClick={handleSaveEdit} className="bg-indigo-600 hover:bg-indigo-700">
+                      <Save size={16} className="mr-1" />
+                      Guardar
+                    </Button>
+                  </div>
+                )}
+              </div>
             </SheetHeader>
 
             {loadingDetail ? (
@@ -371,21 +492,48 @@ const Sales = () => {
               </div>
             ) : saleDetail ? (
               <div className="mt-6 space-y-6">
-                {/* Status */}
+                {/* Score & Status */}
                 <div className="flex items-center justify-between">
-                  <Badge className={`${getStatusColor(saleDetail.sale?.status)} text-sm px-3 py-1`}>
-                    {saleDetail.sale?.status}
-                  </Badge>
-                  <span className="text-sm text-slate-500">
-                    {new Date(saleDetail.sale?.created_at).toLocaleDateString('es-ES', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <Badge className={`${getScoreBadge(saleDetail.sale?.score || 0)} text-lg px-3 py-1`}>
+                      <Star size={16} className="mr-1" />
+                      Score: {saleDetail.sale?.score || 0}
+                    </Badge>
+                  </div>
+                  {isEditing ? (
+                    <Select value={editForm.status} onValueChange={(val) => setEditForm({...editForm, status: val})}>
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SALE_STATUSES.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select value={saleDetail.sale?.status} onValueChange={handleStatusChange}>
+                      <SelectTrigger className={`w-40 ${getStatusColor(saleDetail.sale?.status)}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SALE_STATUSES.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
+
+                <p className="text-sm text-slate-500">
+                  {new Date(saleDetail.sale?.created_at).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </p>
 
                 {/* Client Info */}
                 <Card className="p-4 bg-slate-50 border-slate-200">
@@ -411,33 +559,96 @@ const Sales = () => {
                     <Building2 size={16} />
                     Datos de Contratación
                   </h4>
-                  <div className="space-y-2">
-                    <p className="text-sm"><span className="text-slate-500">Compañía:</span> <span className="font-semibold">{saleDetail.sale?.company}</span></p>
-                    <p className="text-sm"><span className="text-slate-500">Tipo:</span> {saleDetail.sale?.pack_type}</p>
-                    {saleDetail.sale?.pack_name && (
-                      <p className="text-sm"><span className="text-slate-500">Pack:</span> {saleDetail.sale?.pack_name}</p>
-                    )}
-                    {saleDetail.sale?.pack_price && (
-                      <p className="text-sm"><span className="text-slate-500">Precio:</span> <span className="font-semibold text-green-700">{saleDetail.sale?.pack_price}€/mes</span></p>
-                    )}
-                  </div>
+                  {isEditing ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Compañía</Label>
+                        <Select value={editForm.company} onValueChange={(val) => setEditForm({...editForm, company: val})}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Jazztel">Jazztel</SelectItem>
+                            <SelectItem value="MásMóvil">MásMóvil</SelectItem>
+                            <SelectItem value="Pepephone">Pepephone</SelectItem>
+                            <SelectItem value="Simyo">Simyo</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Nombre Pack</Label>
+                        <Input 
+                          value={editForm.pack_name} 
+                          onChange={(e) => setEditForm({...editForm, pack_name: e.target.value})}
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Precio (€)</Label>
+                        <Input 
+                          type="number"
+                          value={editForm.pack_price} 
+                          onChange={(e) => setEditForm({...editForm, pack_price: e.target.value})}
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm"><span className="text-slate-500">Compañía:</span> <span className="font-semibold">{saleDetail.sale?.company}</span></p>
+                      <p className="text-sm"><span className="text-slate-500">Tipo:</span> {saleDetail.sale?.pack_type}</p>
+                      {saleDetail.sale?.pack_name && (
+                        <p className="text-sm"><span className="text-slate-500">Pack:</span> {saleDetail.sale?.pack_name}</p>
+                      )}
+                      {saleDetail.sale?.pack_price && (
+                        <p className="text-sm"><span className="text-slate-500">Precio:</span> <span className="font-semibold text-green-700">{saleDetail.sale?.pack_price}€/mes</span></p>
+                      )}
+                    </div>
+                  )}
                 </Card>
 
                 {/* Fiber Info */}
-                {saleDetail.sale?.fiber && (
+                {(saleDetail.sale?.fiber || isEditing) && (
                   <Card className="p-4 bg-blue-50 border-blue-200">
                     <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
                       <Wifi size={16} />
                       Fibra Óptica
                     </h4>
-                    <div className="space-y-2">
-                      {saleDetail.sale.fiber.speed_mbps && (
-                        <p className="text-sm"><span className="text-blue-700">Velocidad:</span> <span className="font-semibold">{saleDetail.sale.fiber.speed_mbps} Mbps</span></p>
-                      )}
-                      {saleDetail.sale.fiber.address && (
-                        <p className="text-sm"><span className="text-blue-700">Dirección:</span> {saleDetail.sale.fiber.address}</p>
-                      )}
-                    </div>
+                    {isEditing ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Velocidad (Mbps)</Label>
+                          <Select value={editForm.fiber_speed} onValueChange={(val) => setEditForm({...editForm, fiber_speed: val})}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Seleccionar" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="100">100 Mbps</SelectItem>
+                              <SelectItem value="300">300 Mbps</SelectItem>
+                              <SelectItem value="600">600 Mbps</SelectItem>
+                              <SelectItem value="1000">1 Gbps</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs">Dirección</Label>
+                          <Input 
+                            value={editForm.fiber_address} 
+                            onChange={(e) => setEditForm({...editForm, fiber_address: e.target.value})}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {saleDetail.sale.fiber?.speed_mbps && (
+                          <p className="text-sm"><span className="text-blue-700">Velocidad:</span> <span className="font-semibold">{saleDetail.sale.fiber.speed_mbps} Mbps</span></p>
+                        )}
+                        {saleDetail.sale.fiber?.address && (
+                          <p className="text-sm"><span className="text-blue-700">Dirección:</span> {saleDetail.sale.fiber.address}</p>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 )}
 
@@ -466,15 +677,24 @@ const Sales = () => {
                 )}
 
                 {/* Notes */}
-                {saleDetail.sale?.notes && (
-                  <Card className="p-4 bg-yellow-50 border-yellow-200">
-                    <h4 className="text-sm font-semibold text-yellow-900 mb-3 flex items-center gap-2">
-                      <FileText size={16} />
-                      Notas del Empleado
-                    </h4>
-                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{saleDetail.sale.notes}</p>
-                  </Card>
-                )}
+                <Card className="p-4 bg-yellow-50 border-yellow-200">
+                  <h4 className="text-sm font-semibold text-yellow-900 mb-3 flex items-center gap-2">
+                    <FileText size={16} />
+                    Notas del Empleado
+                  </h4>
+                  {isEditing ? (
+                    <Textarea
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm({...editForm, notes: e.target.value})}
+                      rows={4}
+                      className="resize-none"
+                    />
+                  ) : (
+                    <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                      {saleDetail.sale?.notes || 'Sin notas'}
+                    </p>
+                  )}
+                </Card>
 
                 {/* Employee */}
                 {saleDetail.employee && (
