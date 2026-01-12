@@ -80,26 +80,23 @@ Sistema SaaS de gestión para stands de telecomunicaciones (Jazztel, MásMóvil,
 ### 🟡 Pendiente (P2)
 - ~~Módulo de comisiones (configuración admin + vista empleado)~~ ✅ COMPLETADO
 
-#### Módulo de Comisiones (P2) - Enero 2026
-- **Acceso restringido**: Solo SuperAdmin/Admin (empleados ven "Acceso Restringido")
-- **Configuración mensual**: Crear/editar configuración por año+mes
-- **Umbral mínimo**: Ventas necesarias antes de comisionar (ej: 10)
-- **Retroactividad**: Comisiones retroactivas activables con número de venta inicial
-- **Categorías dinámicas**: 
-  - Nombre, descripción, valor (€ fijo o %)
-  - Criterios: rango de precio, tipos de pack
-  - Estado activo/inactivo
-- **Cálculo automático**: Por venta, por empleado, total mensual
-- **Estados válidos**: Solo "Instalado" y "Finalizado" comisionan
-- **Duplicar configuración**: Copiar config de un mes a otro
-- **Resumen por empleado**: Tabla con ventas, válidas, umbral alcanzado/no, comisión total
-- **Detalle por empleado**: Desglose venta a venta con razón de no-comisión
-- **Categorías por defecto**: Plantilla VEDA (Alto Valor, Medio, Fibra, Móvil, Bajo Valor)
+### ✅ Completado (P3) - Enero 2026
+- **Recuperación de Contraseña**: Flujo completo "Olvidé mi contraseña"
+  - Página `/forgot-password` para solicitar reset
+  - Página `/reset-password?token=xxx` para nueva contraseña
+  - Token generado con expiración de 1 hora
+  - Modo desarrollo: token visible en logs del backend
+  - Verificación de token y cambio de contraseña seguro
 
-### 🟢 Futuro (P3)
+### ⚙️ Refactorización Backend (Iniciada)
+- Estructura de carpetas creada: `/models`, `/routes`, `/services`
+- Archivos base: `config.py`, `auth.py`
+- **Pendiente**: Migración gradual de endpoints desde `server.py`
+
+### 🟢 Futuro
 - Pipeline editable (personalizar estados de venta)
-- Recuperación de contraseña
-- Mejoras adicionales de UX
+- Envío real de emails (integración SendGrid/Resend)
+- Dashboard de comisiones para empleados
 
 ## Technical Stack
 - **Frontend**: React, React Router, TailwindCSS, shadcn/ui, i18next, **recharts** (gráficos)
