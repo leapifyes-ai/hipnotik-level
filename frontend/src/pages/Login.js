@@ -127,7 +127,7 @@ const Login = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <button
               data-testid="toggle-auth-mode"
               type="button"
@@ -136,6 +136,16 @@ const Login = () => {
             >
               {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
             </button>
+            {isLogin && (
+              <div>
+                <Link 
+                  to="/forgot-password"
+                  className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
+            )}
           </div>
         </Card>
       </div>
