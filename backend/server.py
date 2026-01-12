@@ -1811,6 +1811,393 @@ async def clean_demo_data(user: User = Depends(require_super_admin)):
     
     return {"message": "Demo data deleted successfully"}
 
+# ==================== ANALYTICS ENDPOINTS ====================
+
+@api_router.get("/analytics/sales-by-period")
+async def get_sales_by_period(days: int = 30, user: User = Depends(require_super_admin)):
+    """Get sales aggregated by day for the last N days"""
+    start_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    
+    sales = await db.sales.find(
+        {"created_at": {"$gte": start_date.isoformat()}},
+        {"_id": 0, "created_at": 1, "company": 1, "pack_price": 1, "score": 1, "status": 1}
+    ).to_list(10000)
+    
+    # Group by day
+    daily_data = {}
+    for sale in sales:
+        created = sale.get("created_at")
+        if isinstance(created, str):
+            created = datetime.fromisoformat(created)
+        day_key = created.strftime("%Y-%m-%d")
+        
+        if day_key not in daily_data:
+            daily_data[day_key] = {"date": day_key, "count": 0, "revenue": 0, "score": 0}
+        
+        daily_data[day_key]["count"] += 1
+        daily_data[day_key]["revenue"] += sale.get("pack_price", 0) or 0
+        daily_data[day_key]["score"] += sale.get("score", 0) or 0
+    
+    # Sort by date and fill missing days
+    result = []
+    current = start_date
+    while current <= datetime.now(timezone.utc):
+        day_key = current.strftime("%Y-%m-%d")
+        if day_key in daily_data:
+            result.append(daily_data[day_key])
+        else:
+            result.append({"date": day_key, "count": 0, "revenue": 0, "score": 0})
+        current += timedelta(days=1)
+    
+    return result
+
+@api_router.get("/analytics/sales-by-company")
+async def get_sales_by_company(days: int = 30, user: User = Depends(require_super_admin)):
+    """Get sales aggregated by company"""
+    start_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    
+    sales = await db.sales.find(
+        {"created_at": {"$gte": start_date.isoformat()}},
+        {"_id": 0, "company": 1, "pack_price": 1, "score": 1}
+    ).to_list(10000)
+    
+    company_data = {}
+    for sale in sales:
+        company = sale.get("company", "Otros")
+        if company not in company_data:
+            company_data[company] = {"company": company, "count": 0, "revenue": 0, "avg_score": 0, "total_score": 0}
+        
+        company_data[company]["count"] += 1
+        company_data[company]["revenue"] += sale.get("pack_price", 0) or 0
+        company_data[company]["total_score"] += sale.get("score", 0) or 0
+    
+    # Calculate averages
+    for company in company_data.values():
+        if company["count"] > 0:
+            company["avg_score"] = round(company["total_score"] / company["count"], 1)
+        del company["total_score"]
+    
+    return list(company_data.values())
+
+@api_router.get("/analytics/sales-by-employee")
+async def get_sales_by_employee(days: int = 30, user: User = Depends(require_super_admin)):
+    """Get sales aggregated by employee"""
+    start_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    
+    sales = await db.sales.find(
+        {"created_at": {"$gte": start_date.isoformat()}},
+        {"_id": 0, "created_by": 1, "pack_price": 1, "score": 1}
+    ).to_list(10000)
+    
+    # Get all users
+    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+    user_names = {u["id"]: u["name"] for u in users}
+    
+    employee_data = {}
+    for sale in sales:
+        emp_id = sale.get("created_by", "unknown")
+        emp_name = user_names.get(emp_id, "Desconocido")
+        
+        if emp_id not in employee_data:
+            employee_data[emp_id] = {"employee_id": emp_id, "name": emp_name, "count": 0, "revenue": 0, "total_score": 0}
+        
+        employee_data[emp_id]["count"] += 1
+        employee_data[emp_id]["revenue"] += sale.get("pack_price", 0) or 0
+        employee_data[emp_id]["total_score"] += sale.get("score", 0) or 0
+    
+    result = list(employee_data.values())
+    result.sort(key=lambda x: x["count"], reverse=True)
+    
+    return result
+
+@api_router.get("/analytics/sales-trend")
+async def get_sales_trend(days: int = 30, user: User = Depends(require_super_admin)):
+    """Get sales trend with comparison to previous period"""
+    end_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    start_current = end_date - timedelta(days=days)
+    start_previous = start_current - timedelta(days=days)
+    
+    # Current period
+    current_sales = await db.sales.find(
+        {"created_at": {"$gte": start_current.isoformat()}},
+        {"_id": 0, "pack_price": 1, "score": 1}
+    ).to_list(10000)
+    
+    # Previous period
+    previous_sales = await db.sales.find(
+        {"created_at": {"$gte": start_previous.isoformat(), "$lt": start_current.isoformat()}},
+        {"_id": 0, "pack_price": 1, "score": 1}
+    ).to_list(10000)
+    
+    current_count = len(current_sales)
+    current_revenue = sum(s.get("pack_price", 0) or 0 for s in current_sales)
+    current_score = sum(s.get("score", 0) or 0 for s in current_sales)
+    
+    previous_count = len(previous_sales)
+    previous_revenue = sum(s.get("pack_price", 0) or 0 for s in previous_sales)
+    previous_score = sum(s.get("score", 0) or 0 for s in previous_sales)
+    
+    def calc_change(current, previous):
+        if previous == 0:
+            return 100 if current > 0 else 0
+        return round(((current - previous) / previous) * 100, 1)
+    
+    return {
+        "current_period": {
+            "count": current_count,
+            "revenue": round(current_revenue, 2),
+            "total_score": current_score,
+            "avg_score": round(current_score / current_count, 1) if current_count > 0 else 0
+        },
+        "previous_period": {
+            "count": previous_count,
+            "revenue": round(previous_revenue, 2),
+            "total_score": previous_score,
+            "avg_score": round(previous_score / previous_count, 1) if previous_count > 0 else 0
+        },
+        "changes": {
+            "count": calc_change(current_count, previous_count),
+            "revenue": calc_change(current_revenue, previous_revenue),
+            "score": calc_change(current_score, previous_score)
+        }
+    }
+
+# ==================== EXPORT ENDPOINTS ====================
+
+@api_router.get("/export/sales/csv")
+async def export_sales_csv(user: User = Depends(require_super_admin)):
+    """Export all sales to CSV"""
+    sales = await db.sales.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    
+    # Get client and user names
+    clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1, "phone": 1}).to_list(10000)
+    client_map = {c["id"]: c for c in clients}
+    
+    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+    user_map = {u["id"]: u["name"] for u in users}
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow([
+        "ID", "Fecha", "Cliente", "Teléfono", "Compañía", "Tipo Pack", 
+        "Nombre Pack", "Precio", "Score", "Estado", "Empleado", "Notas"
+    ])
+    
+    # Data
+    for sale in sales:
+        client = client_map.get(sale.get("client_id"), {})
+        created_at = sale.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+        
+        writer.writerow([
+            sale.get("id", ""),
+            created_at.strftime("%Y-%m-%d %H:%M") if created_at else "",
+            client.get("name", "N/A"),
+            client.get("phone", "N/A"),
+            sale.get("company", ""),
+            sale.get("pack_type", ""),
+            sale.get("pack_name", ""),
+            sale.get("pack_price", ""),
+            sale.get("score", 0),
+            sale.get("status", ""),
+            user_map.get(sale.get("created_by"), "N/A"),
+            sale.get("notes", "")[:100] if sale.get("notes") else ""
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=ventas_hipnotik.csv"}
+    )
+
+@api_router.get("/export/sales/pdf")
+async def export_sales_pdf(user: User = Depends(require_super_admin)):
+    """Export sales summary to PDF"""
+    sales = await db.sales.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    
+    # Get client and user names
+    clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
+    client_map = {c["id"]: c.get("name", "N/A") for c in clients}
+    
+    users = await db.users.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(100)
+    user_map = {u["id"]: u["name"] for u in users}
+    
+    # Create PDF
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    elements = []
+    styles = getSampleStyleSheet()
+    
+    # Title
+    elements.append(Paragraph("HIPNOTIK LEVEL - Reporte de Ventas", styles['Heading1']))
+    elements.append(Paragraph(f"Generado el {datetime.now().strftime('%d/%m/%Y %H:%M')}", styles['Normal']))
+    elements.append(Spacer(1, 20))
+    
+    # Summary
+    total_sales = len(sales)
+    total_revenue = sum(s.get("pack_price", 0) or 0 for s in sales)
+    total_score = sum(s.get("score", 0) or 0 for s in sales)
+    avg_score = round(total_score / total_sales, 1) if total_sales > 0 else 0
+    
+    elements.append(Paragraph("Resumen", styles['Heading2']))
+    summary_data = [
+        ["Total Ventas", str(total_sales)],
+        ["Ingresos Totales", f"€{total_revenue:,.2f}"],
+        ["Score Total", str(total_score)],
+        ["Score Promedio", str(avg_score)]
+    ]
+    summary_table = Table(summary_data, colWidths=[150, 150])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('PADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 20))
+    
+    # Sales by Company
+    elements.append(Paragraph("Ventas por Compañía", styles['Heading2']))
+    company_stats = {}
+    for sale in sales:
+        company = sale.get("company", "Otros")
+        if company not in company_stats:
+            company_stats[company] = {"count": 0, "revenue": 0}
+        company_stats[company]["count"] += 1
+        company_stats[company]["revenue"] += sale.get("pack_price", 0) or 0
+    
+    company_data = [["Compañía", "Ventas", "Ingresos"]]
+    for company, stats in sorted(company_stats.items(), key=lambda x: x[1]["count"], reverse=True):
+        company_data.append([company, str(stats["count"]), f"€{stats['revenue']:,.2f}"])
+    
+    company_table = Table(company_data, colWidths=[150, 80, 100])
+    company_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('PADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(company_table)
+    elements.append(Spacer(1, 20))
+    
+    # Recent Sales (last 20)
+    elements.append(Paragraph("Últimas 20 Ventas", styles['Heading2']))
+    sales_data = [["Fecha", "Cliente", "Compañía", "Precio", "Score", "Estado"]]
+    for sale in sales[:20]:
+        created_at = sale.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+        
+        sales_data.append([
+            created_at.strftime("%d/%m/%y") if created_at else "",
+            client_map.get(sale.get("client_id"), "N/A")[:20],
+            sale.get("company", "")[:15],
+            f"€{sale.get('pack_price', 0) or 0}",
+            str(sale.get("score", 0)),
+            sale.get("status", "")[:10]
+        ])
+    
+    sales_table = Table(sales_data, colWidths=[60, 100, 80, 50, 40, 70])
+    sales_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('PADDING', (0, 0), (-1, -1), 5),
+    ]))
+    elements.append(sales_table)
+    
+    doc.build(elements)
+    buffer.seek(0)
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=reporte_ventas_hipnotik.pdf"}
+    )
+
+@api_router.get("/export/clients/csv")
+async def export_clients_csv(user: User = Depends(require_super_admin)):
+    """Export all clients to CSV"""
+    clients = await db.clients.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(["ID", "Nombre", "Teléfono", "Email", "Ciudad", "DNI", "Dirección", "Fecha Alta", "Notas Internas"])
+    
+    # Data
+    for client in clients:
+        created_at = client.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+        
+        writer.writerow([
+            client.get("id", ""),
+            client.get("name", ""),
+            client.get("phone", ""),
+            client.get("email", ""),
+            client.get("city", ""),
+            client.get("dni", ""),
+            client.get("address", ""),
+            created_at.strftime("%Y-%m-%d") if created_at else "",
+            client.get("internal_notes", "")[:100] if client.get("internal_notes") else ""
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=clientes_hipnotik.csv"}
+    )
+
+@api_router.get("/export/incidents/csv")
+async def export_incidents_csv(user: User = Depends(require_super_admin)):
+    """Export all incidents to CSV"""
+    incidents = await db.incidents.find({}, {"_id": 0}).sort("created_at", -1).to_list(10000)
+    
+    # Get client names
+    clients = await db.clients.find({}, {"_id": 0, "id": 1, "name": 1}).to_list(10000)
+    client_map = {c["id"]: c.get("name", "N/A") for c in clients}
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Header
+    writer.writerow(["ID", "Fecha", "Cliente", "Título", "Tipo", "Prioridad", "Estado", "Descripción", "Notas Resolución"])
+    
+    # Data
+    for incident in incidents:
+        created_at = incident.get("created_at")
+        if isinstance(created_at, str):
+            created_at = datetime.fromisoformat(created_at)
+        
+        writer.writerow([
+            incident.get("id", ""),
+            created_at.strftime("%Y-%m-%d %H:%M") if created_at else "",
+            client_map.get(incident.get("client_id"), "N/A"),
+            incident.get("title", ""),
+            incident.get("type", ""),
+            incident.get("priority", ""),
+            incident.get("status", ""),
+            incident.get("description", "")[:100] if incident.get("description") else "",
+            incident.get("resolution_notes", "")[:100] if incident.get("resolution_notes") else ""
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=incidencias_hipnotik.csv"}
+    )
+
 # ==================== INCLUDE ROUTER ====================
 
 app.include_router(api_router)
