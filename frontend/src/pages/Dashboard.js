@@ -377,7 +377,7 @@ const Dashboard = () => {
                   <div>
                     <p className="text-sm font-medium text-blue-900">Información adicional</p>
                     <p className="text-xs text-blue-700 mt-1">
-                      Haz clic en "Ver todas" en la sección Ventas para ver el detalle completo.
+                      Haz clic en &quot;Ver todas&quot; en la sección Ventas para ver el detalle completo.
                     </p>
                   </div>
                 </div>

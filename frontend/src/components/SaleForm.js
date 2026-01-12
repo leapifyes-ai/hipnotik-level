@@ -37,6 +37,15 @@ export const SaleForm = ({ onSuccess, onCancel, preloadData = null }) => {
     notes: ''
   });
 
+  const fetchPacks = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/packs?active_only=true`);
+      setPacks(response.data);
+    } catch (error) {
+      console.error('Error fetching packs:', error);
+    }
+  };
+
   useEffect(() => {
     fetchPacks();
     
@@ -58,15 +67,6 @@ export const SaleForm = ({ onSuccess, onCancel, preloadData = null }) => {
       }
     }
   }, []);
-
-  const fetchPacks = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/packs?active_only=true`);
-      setPacks(response.data);
-    } catch (error) {
-      console.error('Error fetching packs:', error);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();

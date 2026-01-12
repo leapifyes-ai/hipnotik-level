@@ -476,7 +476,7 @@ const Clients = () => {
                             <p className="text-sm text-slate-700 whitespace-pre-wrap">{selectedClient.internal_notes}</p>
                           ) : (
                             <p className="text-sm text-slate-400 italic">
-                              Sin notas internas. Haz clic en "Editar Cliente" para añadir notas.
+                              Sin notas internas. Haz clic en &quot;Editar Cliente&quot; para añadir notas.
                             </p>
                           )}
                         </div>
