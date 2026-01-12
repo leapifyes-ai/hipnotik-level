@@ -518,16 +518,29 @@ async def get_client(client_id: str, user: User = Depends(get_current_user)):
     return Client(**client)
 
 @api_router.put("/clients/{client_id}", response_model=Client)
-async def update_client(client_id: str, client_data: ClientCreate, user: User = Depends(get_current_user)):
+async def update_client(client_id: str, client_data: ClientUpdate, user: User = Depends(get_current_user)):
+    """Update client - all fields are optional"""
+    # Build update dict with only provided fields
+    update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if client_data.name is not None:
+        update_dict["name"] = client_data.name
+    if client_data.phone is not None:
+        update_dict["phone"] = client_data.phone
+    if client_data.email is not None:
+        update_dict["email"] = client_data.email
+    if client_data.city is not None:
+        update_dict["city"] = client_data.city
+    if client_data.address is not None:
+        update_dict["address"] = client_data.address
+    if client_data.dni is not None:
+        update_dict["dni"] = client_data.dni
+    if client_data.internal_notes is not None:
+        update_dict["internal_notes"] = client_data.internal_notes
+    
     result = await db.clients.update_one(
         {"id": client_id},
-        {"$set": {
-            "name": client_data.name,
-            "phone": client_data.phone,
-            "email": client_data.email,
-            "city": client_data.city,
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
+        {"$set": update_dict}
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -538,6 +551,29 @@ async def update_client(client_id: str, client_data: ClientCreate, user: User = 
     if isinstance(client["updated_at"], str):
         client["updated_at"] = datetime.fromisoformat(client["updated_at"])
     return Client(**client)
+
+@api_router.get("/clients/{client_id}/sales")
+async def get_client_sales(client_id: str, user: User = Depends(get_current_user)):
+    """Get all sales for a specific client with score included"""
+    sales = await db.sales.find({"client_id": client_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    
+    # Calculate total score for the client
+    total_score = sum(s.get("score", 0) for s in sales)
+    
+    for s in sales:
+        if isinstance(s["created_at"], str):
+            s["created_at"] = datetime.fromisoformat(s["created_at"])
+        if isinstance(s["updated_at"], str):
+            s["updated_at"] = datetime.fromisoformat(s["updated_at"])
+        # Ensure score exists
+        if "score" not in s:
+            s["score"] = calculate_sale_score(s)
+    
+    return {
+        "sales": sales,
+        "total_score": total_score,
+        "sales_count": len(sales)
+    }
 
 # ==================== SALE ENDPOINTS ====================
 
