@@ -209,6 +209,22 @@ const Incidents = () => {
     return diffDays;
   };
 
+  // Filter incidents
+  const filteredIncidents = incidents.filter(incident => {
+    if (filterStatus !== 'all' && incident.status !== filterStatus) return false;
+    return true;
+  });
+
+  const handleFilterChange = (value) => {
+    setFilterStatus(value);
+    if (value === 'all') {
+      searchParams.delete('status');
+    } else {
+      searchParams.set('status', value);
+    }
+    setSearchParams(searchParams);
+  };
+
   return (
     <DashboardLayout>
       <div className="p-4 md:p-8 space-y-6 pb-24 md:pb-8">
@@ -226,6 +242,35 @@ const Incidents = () => {
             Nueva Incidencia
           </Button>
         </div>
+
+        {/* Filtro por Estado */}
+        <Card className="p-4 bg-white border-slate-200 shadow-sm">
+          <div className="flex items-center gap-4">
+            <Label className="text-sm font-medium text-slate-700">Filtrar por Estado:</Label>
+            <Select value={filterStatus} onValueChange={handleFilterChange}>
+              <SelectTrigger className="w-48" data-testid="filter-incident-status">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los estados</SelectItem>
+                {INCIDENT_STATUSES.map(status => (
+                  <SelectItem key={status} value={status}>{status}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {filterStatus !== 'all' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => handleFilterChange('all')}
+                className="text-slate-500"
+              >
+                <X size={16} className="mr-1" />
+                Limpiar filtro
+              </Button>
+            )}
+          </div>
+        </Card>
 
         {/* Tabla de Incidencias */}
         {loading ? (
