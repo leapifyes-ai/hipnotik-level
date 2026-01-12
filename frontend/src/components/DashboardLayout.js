@@ -13,6 +13,7 @@ import {
   Calculator as CalcIcon,
   FileText,
   Coins,
+  HelpCircle,
   Settings as SettingsIcon,
   Menu,
   X,
