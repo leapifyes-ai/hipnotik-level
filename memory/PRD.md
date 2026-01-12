@@ -86,8 +86,8 @@ Sistema SaaS de gestión para stands de telecomunicaciones (Jazztel, MásMóvil,
 - Mejoras adicionales de UX
 
 ## Technical Stack
-- **Frontend**: React, React Router, TailwindCSS, shadcn/ui, i18next
-- **Backend**: FastAPI, Pydantic, JWT
+- **Frontend**: React, React Router, TailwindCSS, shadcn/ui, i18next, **recharts** (gráficos)
+- **Backend**: FastAPI, Pydantic, JWT, **pandas** (export), **reportlab** (PDF)
 - **Database**: MongoDB (NoSQL)
 
 ## Key API Endpoints
