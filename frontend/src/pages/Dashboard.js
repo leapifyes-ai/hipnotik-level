@@ -231,21 +231,38 @@ const Dashboard = () => {
           <Card className="p-6 bg-white border-slate-200 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-heading font-semibold text-slate-900">Incidencias</h3>
-              <Button variant="link" className="text-indigo-600 text-sm p-0 h-auto">
+              <Button 
+                variant="link" 
+                className="text-indigo-600 text-sm p-0 h-auto"
+                onClick={() => navigate('/incidents')}
+                data-testid="view-all-incidents"
+              >
                 Ver todas →
               </Button>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+              <div 
+                className="p-4 bg-red-50 border border-red-200 rounded-lg text-center cursor-pointer hover:bg-red-100 transition-colors"
+                onClick={() => navigate('/incidents?status=Abierta')}
+                data-testid="incidents-open-card"
+              >
                 <p className="text-3xl font-heading font-bold text-red-700">{kpis?.incidents?.open || 0}</p>
                 <p className="text-xs text-red-600 mt-1">Abiertas</p>
               </div>
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+              <div 
+                className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center cursor-pointer hover:bg-yellow-100 transition-colors"
+                onClick={() => navigate('/incidents?status=En Proceso')}
+                data-testid="incidents-inprogress-card"
+              >
                 <p className="text-3xl font-heading font-bold text-yellow-700">{kpis?.incidents?.in_progress || 0}</p>
                 <p className="text-xs text-yellow-600 mt-1">En proceso</p>
               </div>
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+              <div 
+                className="p-4 bg-green-50 border border-green-200 rounded-lg text-center cursor-pointer hover:bg-green-100 transition-colors"
+                onClick={() => navigate('/incidents?status=Cerrada')}
+                data-testid="incidents-closed-card"
+              >
                 <p className="text-3xl font-heading font-bold text-green-700">{kpis?.incidents?.closed || 0}</p>
                 <p className="text-xs text-green-600 mt-1">Cerradas</p>
               </div>
