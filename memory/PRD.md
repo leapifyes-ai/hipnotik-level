@@ -78,7 +78,7 @@ Sistema SaaS de gestión para stands de telecomunicaciones (Jazztel, MásMóvil,
 - **Exportación PDF**: Reporte de ventas formateado con reportlab
 
 ### 🟡 Pendiente (P2)
-- Módulo de comisiones (configuración admin + vista empleado)
+- ~~Módulo de comisiones (configuración admin + vista empleado)~~ ✅ COMPLETADO
 
 ### 🟢 Futuro (P3)
 - Pipeline editable (personalizar estados de venta)
