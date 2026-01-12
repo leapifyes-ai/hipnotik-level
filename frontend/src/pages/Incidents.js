@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '../components/DashboardLayout';
 import { useAuth } from '../context/AuthContext';
 import { Card } from '../components/ui/card';
@@ -34,11 +35,13 @@ const INCIDENT_TYPES = ["Técnica", "Comercial", "Administrativa"];
 
 const Incidents = () => {
   const { user, isSuperAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [incidents, setIncidents] = useState([]);
   const [clients, setClients] = useState({});
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
+  const [filterStatus, setFilterStatus] = useState(searchParams.get('status') || 'all');
   
   // Detail sheet state
   const [showDetail, setShowDetail] = useState(false);
