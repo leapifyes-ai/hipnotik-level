@@ -871,6 +871,94 @@ async def get_incidents(user: User = Depends(get_current_user)):
             i["updated_at"] = datetime.fromisoformat(i["updated_at"])
     return incidents
 
+@api_router.get("/incidents/{incident_id}")
+async def get_incident_detail(incident_id: str, user: User = Depends(get_current_user)):
+    """Get detailed incident information including client data"""
+    incident = await db.incidents.find_one({"id": incident_id}, {"_id": 0})
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    
+    # Check access for employees
+    if user.role == "Empleado" and incident.get("created_by") != user.id and incident.get("assigned_to") != user.id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get client info
+    client = await db.clients.find_one({"id": incident["client_id"]}, {"_id": 0})
+    
+    # Get creator info
+    creator = await db.users.find_one({"id": incident["created_by"]}, {"_id": 0, "password": 0})
+    
+    # Get assigned employee info
+    assigned = None
+    if incident.get("assigned_to"):
+        assigned = await db.users.find_one({"id": incident["assigned_to"]}, {"_id": 0, "password": 0})
+    
+    # Get comments
+    comments = await db.incident_comments.find({"incident_id": incident_id}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    
+    return {
+        "incident": incident,
+        "client": client,
+        "creator": {"id": creator.get("id"), "name": creator.get("name")} if creator else None,
+        "assigned": {"id": assigned.get("id"), "name": assigned.get("name")} if assigned else None,
+        "comments": comments
+    }
+
+@api_router.put("/incidents/{incident_id}")
+async def update_incident(incident_id: str, incident_data: IncidentUpdate, user: User = Depends(get_current_user)):
+    """
+    Update an incident - employees can edit their own or assigned, SuperAdmin can edit all.
+    """
+    # Get the incident first
+    incident = await db.incidents.find_one({"id": incident_id}, {"_id": 0})
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    
+    # Check permissions
+    if user.role == "Empleado" and incident.get("created_by") != user.id and incident.get("assigned_to") != user.id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar esta incidencia")
+    
+    # Build update dict with only provided fields
+    update_dict = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if incident_data.title is not None:
+        update_dict["title"] = incident_data.title
+    if incident_data.description is not None:
+        update_dict["description"] = incident_data.description
+    if incident_data.priority is not None:
+        update_dict["priority"] = incident_data.priority
+    if incident_data.type is not None:
+        update_dict["type"] = incident_data.type
+    if incident_data.status is not None:
+        update_dict["status"] = incident_data.status
+    if incident_data.assigned_to is not None:
+        update_dict["assigned_to"] = incident_data.assigned_to
+    if incident_data.resolution_notes is not None:
+        update_dict["resolution_notes"] = incident_data.resolution_notes
+    
+    result = await db.incidents.update_one(
+        {"id": incident_id},
+        {"$set": update_dict}
+    )
+    
+    # Create notification if status changed to Cerrada
+    if incident_data.status == "Cerrada":
+        notif = Notification(
+            user_id="all",
+            title="Incidencia resuelta",
+            message=f"{user.name} ha cerrado la incidencia: {incident.get('title')}",
+            type="incident_resolved",
+            related_id=incident_id,
+            related_type="incident"
+        )
+        notif_doc = notif.model_dump()
+        notif_doc["created_at"] = notif_doc["created_at"].isoformat()
+        await db.notifications.insert_one(notif_doc)
+    
+    # Return updated incident
+    updated_incident = await db.incidents.find_one({"id": incident_id}, {"_id": 0})
+    return updated_incident
+
 @api_router.post("/incidents/{incident_id}/comments")
 async def add_incident_comment(incident_id: str, comment: str, user: User = Depends(get_current_user)):
     comment_data = IncidentComment(
