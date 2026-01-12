@@ -1087,6 +1087,130 @@ async def get_fichajes(user: User = Depends(get_current_user)):
             f["timestamp"] = datetime.fromisoformat(f["timestamp"])
     return fichajes
 
+@api_router.get("/fichajes/admin")
+async def get_fichajes_admin(user: User = Depends(require_super_admin)):
+    """
+    Admin view: Get all employees with their current status and work summary.
+    Returns list of employees with: status (Activo/Fichado/No fichado), today's hours, etc.
+    """
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    # Get all employees
+    employees = await db.users.find({"role": "Empleado"}, {"_id": 0, "password": 0}).to_list(100)
+    
+    result = []
+    for emp in employees:
+        # Get today's fichajes for this employee
+        fichajes_today = await db.fichajes.find({
+            "user_id": emp["id"],
+            "timestamp": {"$gte": today.isoformat()}
+        }, {"_id": 0}).sort("timestamp", 1).to_list(100)
+        
+        # Determine status
+        status = "No fichado"
+        total_hours_today = 0
+        entry_time = None
+        exit_time = None
+        
+        if fichajes_today:
+            # Get last fichaje
+            last_fichaje = fichajes_today[-1]
+            last_type = last_fichaje.get("type")
+            
+            if last_type == "Entrada":
+                status = "Fichado"
+                entry_time = last_fichaje.get("timestamp")
+            elif last_type == "Salida":
+                status = "No fichado"
+            
+            # Calculate total hours worked today
+            entries = [f for f in fichajes_today if f["type"] == "Entrada"]
+            exits = [f for f in fichajes_today if f["type"] == "Salida"]
+            
+            for i, entry in enumerate(entries):
+                entry_dt = datetime.fromisoformat(entry["timestamp"]) if isinstance(entry["timestamp"], str) else entry["timestamp"]
+                
+                if i < len(exits):
+                    exit_dt = datetime.fromisoformat(exits[i]["timestamp"]) if isinstance(exits[i]["timestamp"], str) else exits[i]["timestamp"]
+                    total_hours_today += (exit_dt - entry_dt).total_seconds() / 3600
+                elif status == "Fichado":
+                    # Currently working, calculate partial hours
+                    now = datetime.now(timezone.utc)
+                    total_hours_today += (now - entry_dt).total_seconds() / 3600
+        
+        result.append({
+            "user_id": emp["id"],
+            "name": emp["name"],
+            "email": emp["email"],
+            "status": status,
+            "hours_today": round(total_hours_today, 2),
+            "entry_time": entry_time,
+            "fichajes_count_today": len(fichajes_today)
+        })
+    
+    return result
+
+@api_router.get("/fichajes/admin/{user_id}/history")
+async def get_fichajes_admin_history(user_id: str, days: int = 30, user: User = Depends(require_super_admin)):
+    """
+    Get detailed fichaje history for a specific employee.
+    Returns day-by-day breakdown with entry, exit, and duration.
+    """
+    start_date = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    
+    # Get employee info
+    employee = await db.users.find_one({"id": user_id}, {"_id": 0, "password": 0})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    # Get all fichajes in the period
+    fichajes = await db.fichajes.find({
+        "user_id": user_id,
+        "timestamp": {"$gte": start_date.isoformat()}
+    }, {"_id": 0}).sort("timestamp", 1).to_list(1000)
+    
+    # Group by day
+    daily_summary = {}
+    for f in fichajes:
+        timestamp = datetime.fromisoformat(f["timestamp"]) if isinstance(f["timestamp"], str) else f["timestamp"]
+        day_key = timestamp.strftime("%Y-%m-%d")
+        
+        if day_key not in daily_summary:
+            daily_summary[day_key] = {
+                "date": day_key,
+                "entries": [],
+                "exits": [],
+                "total_hours": 0
+            }
+        
+        if f["type"] == "Entrada":
+            daily_summary[day_key]["entries"].append(timestamp.strftime("%H:%M"))
+        else:
+            daily_summary[day_key]["exits"].append(timestamp.strftime("%H:%M"))
+    
+    # Calculate hours per day
+    for day_key, day_data in daily_summary.items():
+        entries = day_data["entries"]
+        exits = day_data["exits"]
+        
+        for i, entry in enumerate(entries):
+            entry_dt = datetime.strptime(f"{day_key} {entry}", "%Y-%m-%d %H:%M")
+            if i < len(exits):
+                exit_dt = datetime.strptime(f"{day_key} {exits[i]}", "%Y-%m-%d %H:%M")
+                day_data["total_hours"] += (exit_dt - entry_dt).total_seconds() / 3600
+        
+        day_data["total_hours"] = round(day_data["total_hours"], 2)
+    
+    # Sort by date descending
+    history = sorted(daily_summary.values(), key=lambda x: x["date"], reverse=True)
+    
+    return {
+        "employee": {"id": employee["id"], "name": employee["name"], "email": employee["email"]},
+        "period_days": days,
+        "history": history,
+        "total_hours_period": round(sum(d["total_hours"] for d in history), 2)
+    }
+
 # ==================== CONTACT ENDPOINTS ====================
 
 @api_router.post("/contacts", response_model=Contact)
