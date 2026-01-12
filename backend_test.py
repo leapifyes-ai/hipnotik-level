@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 class HipnotikAPITester:
-    def __init__(self, base_url="https://sales-stand-app.preview.emergentagent.com/api"):
+    def __init__(self, base_url="https://interesting-varahamihira-1.preview.emergentagent.com/api"):
         self.base_url = base_url
         self.superadmin_token = None
         self.employee_token = None
