@@ -480,12 +480,12 @@ const Incidents = () => {
                   {isEditing ? (
                     <div>
                       <Label className="text-xs">Asignado a</Label>
-                      <Select value={editForm.assigned_to || ''} onValueChange={(val) => setEditForm({...editForm, assigned_to: val})}>
+                      <Select value={editForm.assigned_to || 'none'} onValueChange={(val) => setEditForm({...editForm, assigned_to: val === 'none' ? '' : val})}>
                         <SelectTrigger className="mt-1">
                           <SelectValue placeholder="Sin asignar" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Sin asignar</SelectItem>
+                          <SelectItem value="none">Sin asignar</SelectItem>
                           {employees.map(emp => (
                             <SelectItem key={emp.user_id} value={emp.user_id}>{emp.name}</SelectItem>
                           ))}
