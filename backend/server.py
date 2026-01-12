@@ -305,6 +305,16 @@ class IncidentCreate(BaseModel):
     type: str
     assigned_to: Optional[str] = None
 
+class IncidentUpdate(BaseModel):
+    """Model for updating an existing incident"""
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[Literal["Baja", "Media", "Alta", "Crítica"]] = None
+    type: Optional[str] = None
+    status: Optional[Literal["Abierta", "En Proceso", "Cerrada"]] = None
+    assigned_to: Optional[str] = None
+    resolution_notes: Optional[str] = None
+
 class Incident(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -315,6 +325,7 @@ class Incident(BaseModel):
     type: str
     status: str = "Abierta"
     assigned_to: Optional[str] = None
+    resolution_notes: Optional[str] = None
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
