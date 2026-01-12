@@ -86,6 +86,17 @@ class ClientCreate(BaseModel):
     phone: str
     email: Optional[str] = None
     city: Optional[str] = None
+    address: Optional[str] = None
+    dni: Optional[str] = None
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    city: Optional[str] = None
+    address: Optional[str] = None
+    dni: Optional[str] = None
+    internal_notes: Optional[str] = None
 
 class Client(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -94,6 +105,9 @@ class Client(BaseModel):
     phone: str
     email: Optional[str] = None
     city: Optional[str] = None
+    address: Optional[str] = None
+    dni: Optional[str] = None
+    internal_notes: Optional[str] = None  # Internal notes, only visible to authorized roles
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
