@@ -294,7 +294,7 @@ const Incidents = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
-                  {incidents.map((incident) => {
+                  {filteredIncidents.map((incident) => {
                     const client = clients[incident.client_id];
                     const daysOpen = getDaysOpen(incident.created_at);
                     return (
