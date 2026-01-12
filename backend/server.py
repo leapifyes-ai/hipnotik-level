@@ -2396,6 +2396,8 @@ async def create_commission_config(
         doc["created_at"] = doc["created_at"].isoformat()
         doc["updated_at"] = doc["updated_at"].isoformat()
         await db.commission_configs.insert_one(doc)
+        # Remove MongoDB _id before returning
+        doc.pop("_id", None)
         return doc
 
 @api_router.put("/commissions/config/{year}/{month}")
