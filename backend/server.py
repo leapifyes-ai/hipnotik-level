@@ -628,13 +628,101 @@ async def get_sale_detail(sale_id: str, user: User = Depends(get_current_user)):
 
 @api_router.patch("/sales/{sale_id}/status")
 async def update_sale_status(sale_id: str, status: str, user: User = Depends(get_current_user)):
+    """Update sale status - employees can update their own, SuperAdmin can update all"""
+    # Validate status
+    if status not in SALE_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Valid options: {', '.join(SALE_STATUSES)}")
+    
+    # Get the sale first
+    sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Check permissions: employees can only update their own sales
+    if user.role == "Empleado" and sale.get("created_by") != user.id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar esta venta")
+    
+    # Update status and recalculate score
+    sale["status"] = status
+    new_score = calculate_sale_score(sale)
+    
     result = await db.sales.update_one(
         {"id": sale_id},
-        {"$set": {"status": status, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        {"$set": {
+            "status": status, 
+            "score": new_score,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
     )
+    
+    return {"message": "Status updated", "new_score": new_score}
+
+@api_router.put("/sales/{sale_id}")
+async def update_sale(sale_id: str, sale_data: SaleUpdate, user: User = Depends(get_current_user)):
+    """
+    Update a sale - employees can edit their own, SuperAdmin can edit all.
+    Status change to 'Modificado' is automatic when editing.
+    """
+    # Get the sale first
+    sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+    if not sale:
+        raise HTTPException(status_code=404, detail="Sale not found")
+    
+    # Check permissions: employees can only update their own sales
+    if user.role == "Empleado" and sale.get("created_by") != user.id:
+        raise HTTPException(status_code=403, detail="No tienes permiso para modificar esta venta")
+    
+    # Validate status if provided
+    if sale_data.status and sale_data.status not in SALE_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Valid options: {', '.join(SALE_STATUSES)}")
+    
+    # Build update dict with only provided fields
+    update_dict = {}
+    if sale_data.company:
+        update_dict["company"] = sale_data.company
+    if sale_data.pack_type:
+        update_dict["pack_type"] = sale_data.pack_type
+    if sale_data.pack_id is not None:
+        update_dict["pack_id"] = sale_data.pack_id
+    if sale_data.pack_name is not None:
+        update_dict["pack_name"] = sale_data.pack_name
+    if sale_data.pack_price is not None:
+        update_dict["pack_price"] = sale_data.pack_price
+    if sale_data.mobile_lines is not None:
+        update_dict["mobile_lines"] = [line.model_dump() for line in sale_data.mobile_lines]
+    if sale_data.fiber is not None:
+        update_dict["fiber"] = sale_data.fiber.model_dump()
+    if sale_data.notes is not None:
+        update_dict["notes"] = sale_data.notes
+    if sale_data.status:
+        update_dict["status"] = sale_data.status
+    
+    # If no status provided and there are other changes, set to "Modificado"
+    if not sale_data.status and update_dict:
+        update_dict["status"] = "Modificado"
+    
+    # Merge with existing sale data for score calculation
+    merged_sale = {**sale, **update_dict}
+    new_score = calculate_sale_score(merged_sale)
+    update_dict["score"] = new_score
+    update_dict["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.sales.update_one(
+        {"id": sale_id},
+        {"$set": update_dict}
+    )
+    
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Sale not found")
-    return {"message": "Status updated"}
+    
+    # Return updated sale
+    updated_sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
+    return updated_sale
+
+@api_router.get("/sales/statuses")
+async def get_sale_statuses(user: User = Depends(get_current_user)):
+    """Get list of valid sale statuses"""
+    return {"statuses": SALE_STATUSES}
 
 # ==================== PACK ENDPOINTS ====================
 
