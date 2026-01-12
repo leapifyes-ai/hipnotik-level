@@ -13,6 +13,7 @@ import Fichajes from './pages/Fichajes';
 import Contacts from './pages/Contacts';
 import Calculator from './pages/Calculator';
 import Reports from './pages/Reports';
+import Commissions from './pages/Commissions';
 import Settings from './pages/Settings';
 
 const PrivateRoute = ({ children }) => {
@@ -43,6 +44,7 @@ function AppRoutes() {
       <Route path="/contacts" element={<PrivateRoute><Contacts /></PrivateRoute>} />
       <Route path="/calculator" element={<PrivateRoute><Calculator /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
+      <Route path="/commissions" element={<PrivateRoute><Commissions /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
     </Routes>
   );
