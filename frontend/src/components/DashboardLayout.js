@@ -136,6 +136,7 @@ export const DashboardLayout = ({ children }) => {
     { name: 'Calculadora', href: '/calculator', icon: CalcIcon, show: true },
     { name: 'Reportes', href: '/reports', icon: FileText, show: isSuperAdmin },
     { name: 'Comisiones', href: '/commissions', icon: Coins, show: isSuperAdmin },
+    { name: 'Ayuda', href: '/help', icon: HelpCircle, show: true },
     { name: 'Configuración', href: '/settings', icon: SettingsIcon, show: true },
   ].filter(item => item.show);
 
