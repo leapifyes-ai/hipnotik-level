@@ -633,6 +633,11 @@ async def create_sale(sale_data: SaleCreate, user: User = Depends(get_current_us
     
     return sale
 
+@api_router.get("/sales/statuses")
+async def get_sale_statuses(user: User = Depends(get_current_user)):
+    """Get list of valid sale statuses"""
+    return {"statuses": SALE_STATUSES}
+
 @api_router.get("/sales", response_model=List[Sale])
 async def get_sales(user: User = Depends(get_current_user)):
     query = {}
