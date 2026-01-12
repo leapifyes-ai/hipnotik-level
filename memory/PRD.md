@@ -101,9 +101,20 @@ GET /api/clients, GET /api/clients/{id}
 PUT /api/clients/{id}, GET /api/clients/{id}/sales
 GET /api/packs, POST /api/packs
 GET /api/incidents, POST /api/incidents
+PUT /api/incidents/{id}, POST /api/incidents/{id}/comments
 GET /api/fichajes, POST /api/fichajes
 GET /api/fichajes/admin, GET /api/fichajes/admin/{user_id}/history
 GET /api/notifications, PATCH /api/notifications/{id}/read
+
+# Analytics & Export (P1 - Enero 2026)
+GET /api/analytics/sales-by-period?days=30
+GET /api/analytics/sales-by-company?days=30
+GET /api/analytics/sales-by-employee?days=30
+GET /api/analytics/sales-trend?days=30
+GET /api/export/sales/csv
+GET /api/export/sales/pdf
+GET /api/export/clients/csv
+GET /api/export/incidents/csv
 ```
 
 ## Database Schema (MongoDB)
