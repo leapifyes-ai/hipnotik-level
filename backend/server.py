@@ -2484,6 +2484,8 @@ async def duplicate_commission_config(
     }
     
     await db.commission_configs.insert_one(new_config)
+    # Remove MongoDB _id before returning
+    new_config.pop("_id", None)
     return new_config
 
 @api_router.get("/commissions/summary/{year}/{month}")
