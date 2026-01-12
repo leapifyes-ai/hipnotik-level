@@ -124,6 +124,95 @@ class SaleCreate(BaseModel):
     fiber: Optional[FiberData] = None
     notes: Optional[str] = None
 
+class SaleUpdate(BaseModel):
+    """Model for updating an existing sale"""
+    company: Optional[str] = None
+    pack_type: Optional[str] = None
+    pack_id: Optional[str] = None
+    pack_name: Optional[str] = None
+    pack_price: Optional[float] = None
+    mobile_lines: Optional[List[MobileLineData]] = None
+    fiber: Optional[FiberData] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
+
+# Valid sale statuses
+SALE_STATUSES = [
+    "Registrado",
+    "En proceso",
+    "Incidencia",
+    "Instalado",
+    "Modificado",
+    "Cancelado",
+    "Finalizado"
+]
+
+def calculate_sale_score(sale_data: dict) -> int:
+    """
+    Calculate sales score (0-100) based on:
+    - Fiber speed (max 1000Mbps = 40 points)
+    - Mobile lines and GB data (max 30 points)
+    - Pack price (max 20 points)
+    - Sale status (max 10 points)
+    """
+    score = 0
+    
+    # Fiber speed score (0-40 points)
+    fiber = sale_data.get("fiber") or {}
+    fiber_speed = fiber.get("speed_mbps", 0) or 0
+    if fiber_speed >= 1000:
+        score += 40
+    elif fiber_speed >= 600:
+        score += 30
+    elif fiber_speed >= 300:
+        score += 20
+    elif fiber_speed >= 100:
+        score += 10
+    
+    # Mobile lines score (0-30 points)
+    mobile_lines = sale_data.get("mobile_lines") or []
+    num_lines = len(mobile_lines)
+    total_gb = sum((line.get("gb_data") or 0) for line in mobile_lines)
+    
+    # Points for number of lines (max 15)
+    line_points = min(num_lines * 5, 15)
+    score += line_points
+    
+    # Points for total GB (unlimited = high GB, max 15)
+    if total_gb >= 100:
+        score += 15
+    elif total_gb >= 50:
+        score += 10
+    elif total_gb >= 20:
+        score += 5
+    
+    # Pack price score (0-20 points)
+    pack_price = sale_data.get("pack_price") or 0
+    if pack_price >= 70:
+        score += 20
+    elif pack_price >= 50:
+        score += 15
+    elif pack_price >= 30:
+        score += 10
+    elif pack_price >= 15:
+        score += 5
+    
+    # Status score (0-10 points)
+    status = sale_data.get("status", "Registrado")
+    status_scores = {
+        "Finalizado": 10,
+        "Instalado": 8,
+        "En proceso": 5,
+        "Registrado": 3,
+        "Modificado": 4,
+        "Incidencia": -5,
+        "Cancelado": -10
+    }
+    score += status_scores.get(status, 0)
+    
+    # Ensure score is within 0-100
+    return max(0, min(100, score))
+
 class Sale(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -137,6 +226,7 @@ class Sale(BaseModel):
     fiber: Optional[Dict] = None
     notes: Optional[str] = None
     status: str = "Registrado"
+    score: int = 0
     created_by: str
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
