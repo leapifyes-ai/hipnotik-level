@@ -343,9 +343,13 @@ const Incidents = () => {
                 </tbody>
               </table>
             </div>
-            {incidents.length === 0 && (
+            {filteredIncidents.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-slate-500">No hay incidencias registradas</p>
+                <p className="text-slate-500">
+                  {filterStatus !== 'all' 
+                    ? `No hay incidencias con estado "${filterStatus}"` 
+                    : 'No hay incidencias registradas'}
+                </p>
               </div>
             )}
           </Card>
