@@ -5,10 +5,8 @@ import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
+import { SaleForm } from '../components/SaleForm';
 import { 
   TrendingUp, 
   Calendar, 
@@ -32,26 +30,10 @@ const Dashboard = () => {
   const [showQuickSale, setShowQuickSale] = useState(false);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
   const [selectedKpi, setSelectedKpi] = useState(null);
-  const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const [saleForm, setSaleForm] = useState({
-    clientName: '',
-    clientPhone: '',
-    clientEmail: '',
-    clientCity: '',
-    company: '',
-    packType: '',
-    packId: '',
-    mobileNumber: '',
-    mobileType: '',
-    iccid: '',
-    originCompany: ''
-  });
 
   useEffect(() => {
     fetchDashboardData();
-    fetchPacks();
     
     const preloadData = localStorage.getItem('quickSalePreload');
     if (preloadData) {
