@@ -12,6 +12,7 @@ import {
   Contact as ContactsIcon,
   Calculator as CalcIcon,
   FileText,
+  Coins,
   Settings as SettingsIcon,
   Menu,
   X,
