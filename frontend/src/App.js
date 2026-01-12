@@ -14,6 +14,7 @@ import Contacts from './pages/Contacts';
 import Calculator from './pages/Calculator';
 import Reports from './pages/Reports';
 import Commissions from './pages/Commissions';
+import Help from './pages/Help';
 import Settings from './pages/Settings';
 
 const PrivateRoute = ({ children }) => {
