@@ -828,7 +828,7 @@ async def get_packs(user: User = Depends(get_current_user), active_only: bool = 
     return packs
 
 @api_router.patch("/packs/{pack_id}")
-async def update_pack(pack_id: str, pack_data: PackCreate, user: User = Depends(require_super_admin)):
+async def patch_pack(pack_id: str, pack_data: PackCreate, user: User = Depends(require_super_admin)):
     doc = pack_data.model_dump()
     if doc.get("validity_start"):
         doc["validity_start"] = doc["validity_start"].isoformat()
@@ -839,6 +839,23 @@ async def update_pack(pack_id: str, pack_data: PackCreate, user: User = Depends(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Pack not found")
     return {"message": "Pack updated"}
+
+@api_router.put("/packs/{pack_id}")
+async def update_pack(pack_id: str, pack_data: PackCreate, user: User = Depends(require_super_admin)):
+    """Update a pack/tariff completely"""
+    doc = pack_data.model_dump()
+    if doc.get("validity_start"):
+        doc["validity_start"] = doc["validity_start"].isoformat()
+    if doc.get("validity_end"):
+        doc["validity_end"] = doc["validity_end"].isoformat()
+    
+    result = await db.packs.update_one({"id": pack_id}, {"$set": doc})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Pack not found")
+    
+    # Return updated pack
+    updated = await db.packs.find_one({"id": pack_id}, {"_id": 0})
+    return updated
 
 # ==================== INCIDENT ENDPOINTS ====================
 
