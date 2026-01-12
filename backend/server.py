@@ -538,6 +538,17 @@ async def create_sale(sale_data: SaleCreate, user: User = Depends(get_current_us
     else:
         raise HTTPException(status_code=400, detail="Client data or ID required")
     
+    # Prepare sale data for score calculation
+    sale_dict = {
+        "fiber": sale_data.fiber.model_dump() if sale_data.fiber else None,
+        "mobile_lines": [line.model_dump() for line in sale_data.mobile_lines] if sale_data.mobile_lines else None,
+        "pack_price": sale_data.pack_price,
+        "status": "Registrado"
+    }
+    
+    # Calculate initial score
+    initial_score = calculate_sale_score(sale_dict)
+    
     sale = Sale(
         client_id=client_id,
         company=sale_data.company,
@@ -548,6 +559,7 @@ async def create_sale(sale_data: SaleCreate, user: User = Depends(get_current_us
         mobile_lines=[line.model_dump() for line in sale_data.mobile_lines] if sale_data.mobile_lines else None,
         fiber=sale_data.fiber.model_dump() if sale_data.fiber else None,
         notes=sale_data.notes,
+        score=initial_score,
         created_by=user.id
     )
     
