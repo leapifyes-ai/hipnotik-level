@@ -774,11 +774,6 @@ async def update_sale(sale_id: str, sale_data: SaleUpdate, user: User = Depends(
     updated_sale = await db.sales.find_one({"id": sale_id}, {"_id": 0})
     return updated_sale
 
-@api_router.get("/sales/statuses")
-async def get_sale_statuses(user: User = Depends(get_current_user)):
-    """Get list of valid sale statuses"""
-    return {"statuses": SALE_STATUSES}
-
 # ==================== PACK ENDPOINTS ====================
 
 @api_router.post("/packs", response_model=Pack)
