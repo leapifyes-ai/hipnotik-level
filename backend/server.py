@@ -2198,6 +2198,563 @@ async def export_incidents_csv(user: User = Depends(require_super_admin)):
         headers={"Content-Disposition": "attachment; filename=incidencias_hipnotik.csv"}
     )
 
+# ==================== COMMISSIONS MODELS ====================
+
+class CommissionCategory(BaseModel):
+    """A category for commission calculation"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = None
+    commission_value: float  # Fixed amount in € or percentage
+    commission_type: Literal["fixed", "percentage"] = "fixed"
+    is_active: bool = True
+    # Criteria for auto-assignment
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    pack_types: Optional[List[str]] = None  # e.g., ["Solo Fibra", "Pack Fibra + Móvil"]
+
+class CommissionCategoryCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    commission_value: float
+    commission_type: Literal["fixed", "percentage"] = "fixed"
+    is_active: bool = True
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    pack_types: Optional[List[str]] = None
+
+class CommissionConfig(BaseModel):
+    """Monthly commission configuration"""
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    year: int
+    month: int  # 1-12
+    threshold: int = 10  # Minimum sales before commissions start
+    retroactive: bool = True  # Apply commissions to all sales once threshold is reached
+    retroactive_from: int = 1  # From which sale number to apply retroactive commissions
+    categories: List[CommissionCategory] = []
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: str = ""
+
+class CommissionConfigCreate(BaseModel):
+    year: int
+    month: int
+    threshold: int = 10
+    retroactive: bool = True
+    retroactive_from: int = 1
+    categories: List[CommissionCategoryCreate] = []
+
+class CommissionConfigUpdate(BaseModel):
+    threshold: Optional[int] = None
+    retroactive: Optional[bool] = None
+    retroactive_from: Optional[int] = None
+    categories: Optional[List[CommissionCategoryCreate]] = None
+    is_active: Optional[bool] = None
+
+# Valid sale statuses that count for commission
+COMMISSIONABLE_STATUSES = ["Instalado", "Finalizado"]
+
+def determine_commission_category(sale: dict, categories: List[dict]) -> Optional[dict]:
+    """Determine which commission category applies to a sale"""
+    pack_price = sale.get("pack_price") or 0
+    pack_type = sale.get("pack_type", "")
+    
+    for cat in categories:
+        if not cat.get("is_active", True):
+            continue
+            
+        # Check price range
+        min_price = cat.get("min_price")
+        max_price = cat.get("max_price")
+        
+        if min_price is not None and pack_price < min_price:
+            continue
+        if max_price is not None and pack_price > max_price:
+            continue
+            
+        # Check pack types
+        pack_types = cat.get("pack_types") or []
+        if pack_types and pack_type not in pack_types:
+            continue
+            
+        return cat
+    
+    return None
+
+def calculate_sale_commission(sale: dict, category: dict) -> float:
+    """Calculate commission for a single sale based on its category"""
+    if not category:
+        return 0.0
+    
+    commission_type = category.get("commission_type", "fixed")
+    commission_value = category.get("commission_value", 0)
+    
+    if commission_type == "fixed":
+        return commission_value
+    elif commission_type == "percentage":
+        pack_price = sale.get("pack_price") or 0
+        return (pack_price * commission_value) / 100
+    
+    return 0.0
+
+# ==================== COMMISSIONS ENDPOINTS ====================
+
+@api_router.get("/commissions/config")
+async def get_commission_configs(
+    year: Optional[int] = None,
+    month: Optional[int] = None,
+    user: User = Depends(require_super_admin)
+):
+    """Get commission configurations (SuperAdmin only)"""
+    query = {}
+    if year:
+        query["year"] = year
+    if month:
+        query["month"] = month
+    
+    configs = await db.commission_configs.find(query, {"_id": 0}).sort([("year", -1), ("month", -1)]).to_list(100)
+    return configs
+
+@api_router.get("/commissions/config/{year}/{month}")
+async def get_commission_config(
+    year: int,
+    month: int,
+    user: User = Depends(require_super_admin)
+):
+    """Get specific month's commission configuration"""
+    config = await db.commission_configs.find_one(
+        {"year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    if not config:
+        # Return default configuration structure
+        return {
+            "year": year,
+            "month": month,
+            "threshold": 10,
+            "retroactive": True,
+            "retroactive_from": 1,
+            "categories": [],
+            "is_active": False,
+            "exists": False
+        }
+    
+    config["exists"] = True
+    return config
+
+@api_router.post("/commissions/config")
+async def create_commission_config(
+    config_data: CommissionConfigCreate,
+    user: User = Depends(require_super_admin)
+):
+    """Create or update commission configuration for a month"""
+    # Check if config already exists
+    existing = await db.commission_configs.find_one(
+        {"year": config_data.year, "month": config_data.month},
+        {"_id": 0}
+    )
+    
+    # Create categories with IDs
+    categories = []
+    for cat in config_data.categories:
+        cat_dict = cat.model_dump()
+        cat_dict["id"] = str(uuid.uuid4())
+        categories.append(cat_dict)
+    
+    if existing:
+        # Update existing
+        update_data = {
+            "threshold": config_data.threshold,
+            "retroactive": config_data.retroactive,
+            "retroactive_from": config_data.retroactive_from,
+            "categories": categories,
+            "is_active": True,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.commission_configs.update_one(
+            {"year": config_data.year, "month": config_data.month},
+            {"$set": update_data}
+        )
+        existing.update(update_data)
+        return existing
+    else:
+        # Create new
+        config = CommissionConfig(
+            year=config_data.year,
+            month=config_data.month,
+            threshold=config_data.threshold,
+            retroactive=config_data.retroactive,
+            retroactive_from=config_data.retroactive_from,
+            categories=categories,
+            is_active=True,
+            created_by=user.id
+        )
+        doc = config.model_dump()
+        doc["created_at"] = doc["created_at"].isoformat()
+        doc["updated_at"] = doc["updated_at"].isoformat()
+        await db.commission_configs.insert_one(doc)
+        return doc
+
+@api_router.put("/commissions/config/{year}/{month}")
+async def update_commission_config(
+    year: int,
+    month: int,
+    update_data: CommissionConfigUpdate,
+    user: User = Depends(require_super_admin)
+):
+    """Update commission configuration for a month"""
+    existing = await db.commission_configs.find_one(
+        {"year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    if not existing:
+        raise HTTPException(status_code=404, detail="Configuration not found")
+    
+    updates = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    
+    if update_data.threshold is not None:
+        updates["threshold"] = update_data.threshold
+    if update_data.retroactive is not None:
+        updates["retroactive"] = update_data.retroactive
+    if update_data.retroactive_from is not None:
+        updates["retroactive_from"] = update_data.retroactive_from
+    if update_data.is_active is not None:
+        updates["is_active"] = update_data.is_active
+    if update_data.categories is not None:
+        categories = []
+        for cat in update_data.categories:
+            cat_dict = cat.model_dump()
+            cat_dict["id"] = str(uuid.uuid4())
+            categories.append(cat_dict)
+        updates["categories"] = categories
+    
+    await db.commission_configs.update_one(
+        {"year": year, "month": month},
+        {"$set": updates}
+    )
+    
+    existing.update(updates)
+    return existing
+
+@api_router.post("/commissions/config/{year}/{month}/duplicate")
+async def duplicate_commission_config(
+    year: int,
+    month: int,
+    target_year: int,
+    target_month: int,
+    user: User = Depends(require_super_admin)
+):
+    """Duplicate commission configuration from one month to another"""
+    source = await db.commission_configs.find_one(
+        {"year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    if not source:
+        raise HTTPException(status_code=404, detail="Source configuration not found")
+    
+    # Check if target already exists
+    existing_target = await db.commission_configs.find_one(
+        {"year": target_year, "month": target_month},
+        {"_id": 0}
+    )
+    
+    if existing_target:
+        raise HTTPException(status_code=400, detail="Target month configuration already exists")
+    
+    # Create new config based on source
+    new_config = {
+        "id": str(uuid.uuid4()),
+        "year": target_year,
+        "month": target_month,
+        "threshold": source["threshold"],
+        "retroactive": source["retroactive"],
+        "retroactive_from": source["retroactive_from"],
+        "categories": source["categories"],
+        "is_active": True,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+        "created_by": user.id
+    }
+    
+    await db.commission_configs.insert_one(new_config)
+    return new_config
+
+@api_router.get("/commissions/summary/{year}/{month}")
+async def get_commission_summary(
+    year: int,
+    month: int,
+    user: User = Depends(require_super_admin)
+):
+    """Get commission summary for a month (SuperAdmin only)"""
+    # Get config for the month
+    config = await db.commission_configs.find_one(
+        {"year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    if not config:
+        return {
+            "year": year,
+            "month": month,
+            "config_exists": False,
+            "threshold": 10,
+            "total_sales": 0,
+            "commissionable_sales": 0,
+            "total_commission": 0,
+            "employees": []
+        }
+    
+    # Get all sales for the month
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    # Query sales within the month
+    sales = await db.sales.find(
+        {
+            "created_at": {
+                "$gte": start_date.isoformat(),
+                "$lt": end_date.isoformat()
+            }
+        },
+        {"_id": 0}
+    ).to_list(10000)
+    
+    # Also try date format without timezone
+    if not sales:
+        sales = await db.sales.find({}, {"_id": 0}).to_list(10000)
+        # Filter manually
+        filtered_sales = []
+        for sale in sales:
+            created_at = sale.get("created_at")
+            if isinstance(created_at, str):
+                try:
+                    sale_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                    if start_date <= sale_date < end_date:
+                        filtered_sales.append(sale)
+                except:
+                    pass
+        sales = filtered_sales
+    
+    # Get all employees
+    employees = await db.users.find({"role": "Empleado"}, {"_id": 0}).to_list(100)
+    employee_map = {e["id"]: e for e in employees}
+    
+    # Also include SuperAdmin for demo purposes
+    admins = await db.users.find({"role": "SuperAdmin"}, {"_id": 0}).to_list(10)
+    for admin in admins:
+        employee_map[admin["id"]] = admin
+    
+    # Group sales by employee
+    employee_sales = {}
+    for sale in sales:
+        emp_id = sale.get("created_by", "unknown")
+        if emp_id not in employee_sales:
+            employee_sales[emp_id] = []
+        employee_sales[emp_id].append(sale)
+    
+    # Calculate commissions per employee
+    threshold = config.get("threshold", 10)
+    retroactive = config.get("retroactive", True)
+    retroactive_from = config.get("retroactive_from", 1)
+    categories = config.get("categories", [])
+    
+    total_commission = 0
+    total_sales = len(sales)
+    commissionable_sales_count = 0
+    employee_summaries = []
+    
+    for emp_id, emp_sales in employee_sales.items():
+        emp_info = employee_map.get(emp_id, {"name": "Desconocido", "id": emp_id})
+        
+        # Sort sales by date
+        emp_sales.sort(key=lambda x: x.get("created_at", ""))
+        
+        total_emp_sales = len(emp_sales)
+        valid_sales = [s for s in emp_sales if s.get("status") in COMMISSIONABLE_STATUSES]
+        valid_count = len(valid_sales)
+        
+        # Check if threshold is reached
+        threshold_reached = total_emp_sales >= threshold
+        
+        emp_commission = 0
+        commissionable = 0
+        
+        if threshold_reached:
+            # Calculate commissions
+            for i, sale in enumerate(emp_sales):
+                sale_num = i + 1
+                
+                # Check if this sale is commissionable
+                if sale.get("status") not in COMMISSIONABLE_STATUSES:
+                    continue
+                
+                # Check retroactive rules
+                if retroactive:
+                    if sale_num < retroactive_from:
+                        continue
+                else:
+                    if sale_num <= threshold:
+                        continue
+                
+                # Find matching category
+                category = determine_commission_category(sale, categories)
+                if category:
+                    commission = calculate_sale_commission(sale, category)
+                    emp_commission += commission
+                    commissionable += 1
+        
+        total_commission += emp_commission
+        commissionable_sales_count += commissionable
+        
+        employee_summaries.append({
+            "employee_id": emp_id,
+            "name": emp_info.get("name", "Desconocido"),
+            "total_sales": total_emp_sales,
+            "valid_sales": valid_count,
+            "threshold_reached": threshold_reached,
+            "commissionable_sales": commissionable,
+            "total_commission": round(emp_commission, 2)
+        })
+    
+    # Sort by total commission descending
+    employee_summaries.sort(key=lambda x: x["total_commission"], reverse=True)
+    
+    return {
+        "year": year,
+        "month": month,
+        "config_exists": True,
+        "threshold": threshold,
+        "retroactive": retroactive,
+        "retroactive_from": retroactive_from,
+        "total_sales": total_sales,
+        "commissionable_sales": commissionable_sales_count,
+        "total_commission": round(total_commission, 2),
+        "employees": employee_summaries
+    }
+
+@api_router.get("/commissions/employee/{employee_id}/{year}/{month}")
+async def get_employee_commission_details(
+    employee_id: str,
+    year: int,
+    month: int,
+    user: User = Depends(require_super_admin)
+):
+    """Get detailed commission breakdown for an employee"""
+    # Get config for the month
+    config = await db.commission_configs.find_one(
+        {"year": year, "month": month},
+        {"_id": 0}
+    )
+    
+    if not config:
+        raise HTTPException(status_code=404, detail="No commission configuration for this month")
+    
+    # Get sales for the employee in the month
+    start_date = datetime(year, month, 1, tzinfo=timezone.utc)
+    if month == 12:
+        end_date = datetime(year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        end_date = datetime(year, month + 1, 1, tzinfo=timezone.utc)
+    
+    # Get all sales and filter
+    all_sales = await db.sales.find({"created_by": employee_id}, {"_id": 0}).to_list(10000)
+    
+    emp_sales = []
+    for sale in all_sales:
+        created_at = sale.get("created_at")
+        if isinstance(created_at, str):
+            try:
+                sale_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+                if start_date <= sale_date < end_date:
+                    emp_sales.append(sale)
+            except:
+                pass
+    
+    # Sort by date
+    emp_sales.sort(key=lambda x: x.get("created_at", ""))
+    
+    threshold = config.get("threshold", 10)
+    retroactive = config.get("retroactive", True)
+    retroactive_from = config.get("retroactive_from", 1)
+    categories = config.get("categories", [])
+    
+    threshold_reached = len(emp_sales) >= threshold
+    
+    # Build detailed breakdown
+    sale_details = []
+    total_commission = 0
+    
+    for i, sale in enumerate(emp_sales):
+        sale_num = i + 1
+        is_valid = sale.get("status") in COMMISSIONABLE_STATUSES
+        
+        commission = 0
+        category_name = None
+        commissionable = False
+        reason = ""
+        
+        if not threshold_reached:
+            reason = f"Umbral no alcanzado ({len(emp_sales)}/{threshold})"
+        elif not is_valid:
+            reason = f"Estado no válido: {sale.get('status')}"
+        elif not retroactive and sale_num <= threshold:
+            reason = "Venta antes del umbral (sin retroactividad)"
+        elif retroactive and sale_num < retroactive_from:
+            reason = f"Venta antes del inicio de retroactividad ({retroactive_from})"
+        else:
+            # Find matching category
+            category = determine_commission_category(sale, categories)
+            if category:
+                commission = calculate_sale_commission(sale, category)
+                category_name = category.get("name")
+                commissionable = True
+                total_commission += commission
+            else:
+                reason = "Sin categoría aplicable"
+        
+        # Get client name
+        client = await db.clients.find_one({"id": sale.get("client_id")}, {"_id": 0, "name": 1})
+        client_name = client.get("name", "N/A") if client else "N/A"
+        
+        sale_details.append({
+            "sale_num": sale_num,
+            "sale_id": sale.get("id"),
+            "client_name": client_name,
+            "company": sale.get("company"),
+            "pack_type": sale.get("pack_type"),
+            "pack_price": sale.get("pack_price"),
+            "status": sale.get("status"),
+            "is_valid": is_valid,
+            "commissionable": commissionable,
+            "category": category_name,
+            "commission": round(commission, 2),
+            "reason": reason,
+            "created_at": sale.get("created_at")
+        })
+    
+    # Get employee info
+    employee = await db.users.find_one({"id": employee_id}, {"_id": 0, "name": 1})
+    
+    return {
+        "employee_id": employee_id,
+        "employee_name": employee.get("name", "Desconocido") if employee else "Desconocido",
+        "year": year,
+        "month": month,
+        "threshold": threshold,
+        "threshold_reached": threshold_reached,
+        "total_sales": len(emp_sales),
+        "total_commission": round(total_commission, 2),
+        "sales": sale_details
+    }
+
 # ==================== INCLUDE ROUTER ====================
 
 app.include_router(api_router)
