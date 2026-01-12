@@ -131,6 +131,15 @@ GET /api/export/sales/csv
 GET /api/export/sales/pdf
 GET /api/export/clients/csv
 GET /api/export/incidents/csv
+
+# Commissions (P2 - Enero 2026)
+GET /api/commissions/config
+GET /api/commissions/config/{year}/{month}
+POST /api/commissions/config
+PUT /api/commissions/config/{year}/{month}
+POST /api/commissions/config/{year}/{month}/duplicate
+GET /api/commissions/summary/{year}/{month}
+GET /api/commissions/employee/{employee_id}/{year}/{month}
 ```
 
 ## Database Schema (MongoDB)
