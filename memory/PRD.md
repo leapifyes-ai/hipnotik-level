@@ -68,15 +68,22 @@ Sistema SaaS de gestión para stands de telecomunicaciones (Jazztel, MásMóvil,
 - Dropdown en header
 - Navegación al elemento relacionado
 
-### 🟡 Pendiente (P1)
-- Analíticas avanzadas con gráficos de tendencias
-- Exportación de reportes CSV/PDF
+#### Reportes y Analíticas (P1) - Enero 2026
+- **Dashboard de Analytics**: Página completa `/reports` solo para SuperAdmin
+- **KPIs con tendencias**: Ventas, Ingresos, Score Total, Score Promedio con comparativa vs período anterior
+- **Gráfico de líneas**: Ventas e ingresos por día con selector de período (7, 15, 30, 60, 90 días)
+- **Gráfico circular**: Distribución de ventas por compañía con detalles de ingresos
+- **Gráfico de barras**: Ranking de ventas por empleado con scores
+- **Exportación CSV**: Ventas, Clientes e Incidencias
+- **Exportación PDF**: Reporte de ventas formateado con reportlab
 
-### 🟢 Futuro (P2-P3)
-- Módulo de comisiones
-- Pipeline editable
+### 🟡 Pendiente (P2)
+- Módulo de comisiones (configuración admin + vista empleado)
+
+### 🟢 Futuro (P3)
+- Pipeline editable (personalizar estados de venta)
 - Recuperación de contraseña
-- Comentarios tipo chat en incidencias
+- Mejoras adicionales de UX
 
 ## Technical Stack
 - **Frontend**: React, React Router, TailwindCSS, shadcn/ui, i18next
