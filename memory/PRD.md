@@ -150,6 +150,7 @@ GET /api/commissions/employee/{employee_id}/{year}/{month}
 - **incidents**: {id, client_id, title, description, priority, status, created_by}
 - **fichajes**: {id, user_id, type, timestamp}
 - **notifications**: {id, user_id, title, message, type, related_id, related_type, read}
+- **commission_configs**: {id, year, month, threshold, retroactive, retroactive_from, categories[], is_active, created_by}
 
 ## Test Credentials
 - **SuperAdmin**: test@hipnotik.com / test123
