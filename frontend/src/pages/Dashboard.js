@@ -35,22 +35,10 @@ const Dashboard = () => {
   useEffect(() => {
     fetchDashboardData();
     
+    // Check for preload from calculator
     const preloadData = localStorage.getItem('quickSalePreload');
     if (preloadData) {
-      try {
-        const data = JSON.parse(preloadData);
-        setSaleForm(prev => ({
-          ...prev,
-          company: data.company,
-          packType: data.packType,
-          packId: data.packId
-        }));
-        setShowQuickSale(true);
-        localStorage.removeItem('quickSalePreload');
-        toast.success('Tarifa precargada desde el configurador');
-      } catch (error) {
-        console.error('Error loading preload data:', error);
-      }
+      setShowQuickSale(true);
     }
   }, []);
 
@@ -70,57 +58,9 @@ const Dashboard = () => {
     }
   };
 
-  const fetchPacks = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/packs?active_only=true`);
-      setPacks(response.data);
-    } catch (error) {
-      console.error('Error fetching packs:', error);
-    }
-  };
-
-  const handleQuickSale = async (e) => {
-    e.preventDefault();
-    try {
-      const mobileLines = saleForm.mobileNumber ? [{
-        number: saleForm.mobileNumber,
-        type: saleForm.mobileType,
-        iccid: saleForm.mobileType === 'Prepago' ? saleForm.iccid : null,
-        origin_company: saleForm.mobileType === 'Prepago' ? saleForm.originCompany : null
-      }] : null;
-
-      await axios.post(`${API_URL}/sales`, {
-        client_data: {
-          name: saleForm.clientName,
-          phone: saleForm.clientPhone,
-          email: saleForm.clientEmail || null,
-          city: saleForm.clientCity || null
-        },
-        company: saleForm.company,
-        pack_type: saleForm.packType,
-        pack_id: saleForm.packId || null,
-        mobile_lines: mobileLines
-      });
-
-      toast.success('Venta registrada exitosamente');
-      setShowQuickSale(false);
-      setSaleForm({
-        clientName: '',
-        clientPhone: '',
-        clientEmail: '',
-        clientCity: '',
-        company: '',
-        packType: '',
-        packId: '',
-        mobileNumber: '',
-        mobileType: '',
-        iccid: '',
-        originCompany: ''
-      });
-      fetchDashboardData();
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'Error al registrar venta');
-    }
+  const handleSaleSuccess = () => {
+    setShowQuickSale(false);
+    fetchDashboardData();
   };
 
   const handleKpiClick = (kpiType) => {
