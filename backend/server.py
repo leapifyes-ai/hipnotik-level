@@ -253,7 +253,7 @@ class PackCreate(BaseModel):
     name: str
     type: Literal["Solo Móvil", "Solo Fibra", "Pack Fibra + Móvil", "Pack Fibra + Móvil + TV"]
     price: float
-    features: str
+    features: Optional[str] = None
     validity_start: Optional[datetime] = None
     validity_end: Optional[datetime] = None
     active: bool = True
@@ -262,12 +262,16 @@ class PackCreate(BaseModel):
     category: Optional[str] = None  # mobile_only/fiber_only/bundle/bundle_tv
     fiber_speed_mbps: Optional[int] = None
     mobile_gb: Optional[int] = None
+    mobile_lines: Optional[int] = 1
     minutes_type: Optional[str] = None  # ilimitadas/limitadas
     lines_included: int = 1
     additional_lines_supported: bool = False
     tv_supported: bool = False
     tv_package_type: Optional[str] = None  # basic/sports/streaming/other
     restrictions: Optional[str] = None
+    # Permanencia
+    has_permanence: bool = False
+    permanence_months: Optional[int] = None
 
 class Pack(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -276,7 +280,7 @@ class Pack(BaseModel):
     name: str
     type: str
     price: float
-    features: str
+    features: Optional[str] = None
     validity_start: Optional[datetime] = None
     validity_end: Optional[datetime] = None
     active: bool = True
@@ -288,12 +292,16 @@ class Pack(BaseModel):
     category: Optional[str] = None
     fiber_speed_mbps: Optional[int] = None
     mobile_gb: Optional[int] = None
+    mobile_lines: Optional[int] = 1
     minutes_type: Optional[str] = None
     lines_included: int = 1
     additional_lines_supported: bool = False
     tv_supported: bool = False
     tv_package_type: Optional[str] = None
     restrictions: Optional[str] = None
+    # Permanencia
+    has_permanence: bool = False
+    permanence_months: Optional[int] = None
 
 # ==================== INCIDENT MODELS ====================
 
