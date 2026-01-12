@@ -50,6 +50,11 @@ Sistema SaaS de gestión para stands de telecomunicaciones (Jazztel, MásMóvil,
 - Creación vinculada a cliente
 - Prioridades: Baja, Media, Alta, Crítica
 - Estados: Abierta, En Proceso, Cerrada
+- **Vista detallada** con panel lateral (Sheet)
+- **Edición completa**: título, descripción, tipo, prioridad, estado
+- **Asignación** a empleados
+- **Notas de resolución** para documentar la solución
+- **Comentarios** tipo timeline para seguimiento
 
 #### Calculadora/Configurador
 - Wizard de 3 pasos para recomendar tarifas
