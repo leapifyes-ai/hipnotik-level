@@ -21,6 +21,8 @@ Sistema SaaS de gestión para stands de telecomunicaciones (Jazztel, MásMóvil,
 - Ranking de empleados
 - Distribución por compañía
 - **Formulario de venta unificado** (igual que Ventas → Nueva venta)
+- **Tarjetas de incidencias clicables**: Abiertas, En Proceso, Cerradas → navega y filtra
+- **"Ver todas →"**: Navega a incidencias sin filtro
 
 #### Ventas (CRÍTICO)
 - **Registro completo**: Cliente, compañía, pack, fibra, líneas móviles, notas
