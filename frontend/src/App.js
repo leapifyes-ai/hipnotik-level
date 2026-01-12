@@ -46,6 +46,7 @@ function AppRoutes() {
       <Route path="/calculator" element={<PrivateRoute><Calculator /></PrivateRoute>} />
       <Route path="/reports" element={<PrivateRoute><Reports /></PrivateRoute>} />
       <Route path="/commissions" element={<PrivateRoute><Commissions /></PrivateRoute>} />
+      <Route path="/help" element={<PrivateRoute><Help /></PrivateRoute>} />
       <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
     </Routes>
   );
